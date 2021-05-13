@@ -309,16 +309,22 @@ func (d *Display) Draw() {
 	d.PrintAt(Step(), xOffset, 5)
 
 	// Instr
-	d.PrintAt(Yellow + "Instr", xOffset + 3, 7)
+	d.PrintAt(Yellow + "Instructions", xOffset + 3, 7)
 	d.PrintAt(Step(), xOffset, 5)
-	lines = InstructionsBlock(0, 11)
+	lines = InstructionsBlock(2, 11)
 	for i := 0 ; i < 11; i++ {
 		d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
 	}
 
 	// Control lines
 	d.PrintAt(Yellow + "Control Lines", 1, 20)
-	d.PrintAt(Red + "1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1 ", 1, 21)
+	for i := uint8(0); i < 7; i++ {
+		colour := Red
+		if i+1 == CurrentStep() {
+			colour = Cyan
+		}
+		d.PrintAt(fmt.Sprintf("%sT%d %s 1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1 %s", Yellow, i+1, colour, Reset), 1, 21 + int(i))
+	}
 
 
 	// Notifications

@@ -162,15 +162,15 @@ func WriteInstructions() *DisplayMessage {
 
 
 func InstructionsBlock(start, length uint16) (lines []string) {
-	i := start
+	i := int(start) - 5
 	for uint16(len(lines)) < length {
-		if int(i) > len(memory) {
+		if i > len(memory) || i < 0 {
 			lines = append(lines, "")
-		} else if Disassemly[i] > "" {
+		} else if Disassemly[uint16(i)] > "" {
 			if len(lines) == 5 {
-				lines = append(lines, BrightMagenta+Disassemly[i]+Reset)
+				lines = append(lines, BrightMagenta+Disassemly[uint16(i)]+Reset)
 			} else {
-				lines = append(lines, Magenta+Disassemly[i]+Reset)
+				lines = append(lines, Magenta+Disassemly[uint16(i)]+Reset)
 			}
 		}
 		i++

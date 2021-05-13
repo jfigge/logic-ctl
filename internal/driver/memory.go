@@ -79,26 +79,23 @@ func MemoryBlock(start uint16) (lines []string) {
 
 	lines = append(lines, Yellow + "     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F" + Reset)
 
-	var colour, last, line string
+	var colour, lastColour, line string
 	var second = 0
 	for i := 0; i < 16; i++ {
-		line = fmt.Sprintf("%s%s%s%s ", Yellow, HEX[address >> 12], HEX[address >> 12 & 15], HEX[address >> 8 & 15])
+		line = fmt.Sprintf("%s%s%s%s ", Yellow, HEX[start >> 12], HEX[start >> 8 & 15], HEX[start >> 4 & 15])
 		for j := 0; j < 16; j++ {
+			colour = normal
 			if address == start {
 				colour = lastAction
-			} else if last != normal {
-				colour = normal
-			} else {
-				colour = ""
 			}
-			last = colour
+			if colour == lastColour { colour = "" } else { lastColour = colour }
 			line += fmt.Sprintf("%s%s ", colour, HexData(memory[start]))
 			if j == 7 {
 				line += " "
 			}
 			start++
 		}
-		last = ""
+		lastColour = ""
 		lines = append(lines, fmt.Sprintf("%s%s", line, Reset))
 		if i == 7 {
 			second++

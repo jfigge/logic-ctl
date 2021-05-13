@@ -37,6 +37,10 @@ func Next() {
 	display.SetDirty()
 }
 
+func CurrentStep() uint8 {
+	return flags & 7
+}
+
 func Flags() string {
 	str := ""
 	lastColour := ""
