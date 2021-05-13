@@ -151,7 +151,7 @@ func Disassemble(nStart, nStop uint16) map[uint16] string {
 			lo = memory[addr]
 			addr++
 			hi = 0x00
-			sInst += "$" + HexData(lo) + " {ZP0}"
+			sInst += "$" + HexData(lo) + " {ZPG}"
 		} else if lookup[opcode].AddrMode == ZPX {
 			lo = memory[addr]
 			addr++

@@ -11,28 +11,87 @@ import (
 // advantage of many of the CPUs internal operations to do this.
 
 const (
+	///////////////////////////////////////////////////////////////////////////////
+	// ADDRESSING MODES
+
+	// The 6502 can address between 0x0000 - 0xFFFF. The high byte is often referred
+	// to as the "page", and the low byte is the offset into that page. This implies
+	// there are 256 pages, each containing 256 bytes.
+	//
+	// Several addressing modes have the potential to require an additional clock
+	// cycle if they cross a page boundary. This is combined with several instructions
+	// that enable this additional clock cycle. So each addressing function returns
+	// a flag saying it has potential, as does each instruction. If both instruction
+	// and address function return 1, then an additional clock cycle is required.
+
+	//Address Mode: Immediate
+	// The instruction expects the next byte to be used as a value, so we'll prep
+	// the read address to point to the next byte
 	IMM = iota + 1
-	REL
+
+	// Address Mode: Implied
+	// There is no additional data required for this instruction. The instruction
+	// does something very simple like like sets a status bit. However, we will
+	// target the accumulator, for instructions like PHA
 	IMP
+
+	// Address Mode: Indirect X/Y
+	// The supplied 8-bit address indexes a location in page 0x00. From
+	// here the actual 16-bit address is read, and the contents of
+	// Y Register is added to it to offset it. If the offset causes a
+	// change in page then an additional clock cycle is required.
+	IZX
+	IZY
+
+	// Address Mode: Zero Page
+	// To save program bytes, zero page addressing allows you to absolutely address
+	// a location in first 0xFF bytes of address range. Clearly this only requires
+	// one byte instead of the usual two.
 	ZPG
+
+	// Address Mode: Zero Page with X/Y Offset
+	// Fundamentally the same as Zero Page addressing, but the contents of the X Register
+	// is added to the supplied single byte address. This is useful for iterating through
+	// ranges within the first page.
 	ZPX
 	ZPY
+
+	// Address Mode: Relative
+	// This address mode is exclusive to branch instructions. The address
+	// must reside within -128 to +127 of the branch instruction, i.e.
+	// you cant directly branch to any address in the addressable range.
+	REL
+
+	// Address Mode: Absolute
+	// A full 16-bit address is loaded and used
 	ABS
+
+	// Address Mode: Absolute with X/Y Offset
+	// Fundamentally the same as absolute addressing, but the contents of the Y Register
+	// is added to the supplied two byte address. If the resulting address changes
+	// the page, an additional clock cycle is required
 	ABX
 	ABY
+
+	// Address Mode: Indirect
+	// The supplied 16-bit address is read to get the actual 16-bit address. This is
+	// instruction is unusual in that it has a bug in the hardware! To emulate its
+	// function accurately, we also need to emulate this bug. If the low byte of the
+	// supplied address is 0xFF, then to read the high byte of the actual address
+	// we need to cross a page boundary. This doesnt actually work on the chip as
+	// designed, instead it wraps back around in the same page, yielding an
+	// invalid actual address
 	IND
 )
 
 const (
 	BRK = iota + 1
 	ORA
-	IZX
 	XXX
 	NOP
 	ASL
 	PHP
 	BPL
-	IZY
 	CLC
 	JSR
 	AND
@@ -98,7 +157,7 @@ type Instruction struct {
 	OpCode   int       `json:"opCode"`
 	AddrMode int       `json:"addrMode"`
 	Steps    int       `json:"steps"`
-	Lines    [3]uint16 `json:"lines"`
+	Lines    [7][3]uint16 `json:"lines"`
 }
 
 var (
@@ -133,7 +192,7 @@ func Export() {
 			OpCode: n,
 			AddrMode: i.AddrMode,
 			Steps: i.steps,
-			Lines: [3]uint16{0,0,0},
+			Lines: [7][3]uint16{{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}},
 		})
 	}
 	f, err := os.Create("instructions/instructions.bin")

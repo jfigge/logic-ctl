@@ -14,6 +14,8 @@ func NewDriver() {
 	} else {
 		display = d
 	}
+
+	//display.NotifyDM(ReadInstructions())
 }
 
 
@@ -56,6 +58,10 @@ func Run() {
 				Next()
 			case 'e':
 				Export()
+			//case 'r':
+			//	display.NotifyDM(ReadInstructions())
+			//case 'w':
+			//	display.NotifyDM(WriteInstructions())
 			default:
 				display.Warn(fmt.Sprintf("Unmapped ascii code: [%c]", a))
 			}

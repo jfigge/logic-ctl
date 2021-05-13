@@ -98,8 +98,8 @@ type Display struct {
 	dirty  bool
 }
 type DisplayMessage struct {
-	Message    string
-	ErrorLevel bool
+	Message string
+	IsError bool
 }
 
 func NewDisplay() (*Display, error) {
@@ -263,6 +263,13 @@ func (d *Display) Notify(text string, colour string) {
 		}
 	}()
 }
+func (d *Display) NotifyDM(dm *DisplayMessage) {
+	if dm.IsError {
+		d.Error(dm.Message)
+	} else {
+		d.Info(dm.Message)
+	}
+}
 func (d *Display) Info(text string) {
 	d.Notify(text, BrightWhite)
 }
@@ -304,10 +311,10 @@ func (d *Display) Draw() {
 	// Instr
 	d.PrintAt(Yellow + "Instr", xOffset + 3, 7)
 	d.PrintAt(Step(), xOffset, 5)
-	lines = Instructions(0, 11)
-	for i := 0 ; i < 11; i++ {
-		d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
-	}
+	//lines = InstructionsBlock(0, 11)
+	//for i := 0 ; i < 11; i++ {
+	//	d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
+	//}
 
 	// Control lines
 	d.PrintAt(Yellow + "Control Lines", 1, 20)
