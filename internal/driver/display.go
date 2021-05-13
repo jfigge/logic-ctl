@@ -311,10 +311,10 @@ func (d *Display) Draw() {
 	// Instr
 	d.PrintAt(Yellow + "Instr", xOffset + 3, 7)
 	d.PrintAt(Step(), xOffset, 5)
-	//lines = InstructionsBlock(0, 11)
-	//for i := 0 ; i < 11; i++ {
-	//	d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
-	//}
+	lines = InstructionsBlock(0, 11)
+	for i := 0 ; i < 11; i++ {
+		d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
+	}
 
 	// Control lines
 	d.PrintAt(Yellow + "Control Lines", 1, 20)
