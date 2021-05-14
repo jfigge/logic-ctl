@@ -55,7 +55,7 @@ func SetAddress(hi byte, lo byte) DisplayMessage {
 	}
 }
 
-func ReadData() (byte, DisplayMessage) {
+func ReadMemory() (byte, DisplayMessage) {
 	lastAction = read
 	return memory[address], DisplayMessage{
 		fmt.Sprintf("Memory[%s] returned %s", HexAddress(address), HexData(memory[address])),
@@ -63,7 +63,7 @@ func ReadData() (byte, DisplayMessage) {
 	}
 }
 
-func WriteData(data byte) DisplayMessage {
+func WriteMemory(data byte) DisplayMessage {
 	memory[address] = data
 	lastAction = written
 	return DisplayMessage{

@@ -14,7 +14,6 @@ func NewDriver() {
 	} else {
 		display = d
 	}
-
 	display.NotifyDM(ReadInstructions())
 }
 
@@ -44,6 +43,13 @@ func Run() {
 			}
 		} else {
 			switch a {
+			case 'a':
+				if a, dm := ReadAddress(); dm.IsError {
+					display.NotifyDM(dm)
+				} else {
+					address = a
+					display.SetDirty()
+				}
 			case 'q':
 				loop = false
 			case 'h':
@@ -60,6 +66,8 @@ func Run() {
 				display.NotifyDM(ReadInstructions())
 			case 'w':
 				display.NotifyDM(WriteInstructions())
+			case 'l':
+				ListPorts()
 			default:
 				display.Warn(fmt.Sprintf("Unmapped ascii code: [%c]", a))
 			}

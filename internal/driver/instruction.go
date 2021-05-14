@@ -101,10 +101,10 @@ type Instruction struct {
 	Lines    [7][3]uint16 `json:"lines"`
 }
 
-func ReadInstructions() *DisplayMessage {
+func ReadInstructions() DisplayMessage {
 	f, err := os.Open("instructions/instructions.bin")
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to open instruction file: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to open instruction file: %v", err), true }
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
@@ -114,20 +114,20 @@ func ReadInstructions() *DisplayMessage {
 
 	fi, err := f.Stat()
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to retrieve file info: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to retrieve file info: %v", err), true }
 	}
 
 	bs := make([]byte, fi.Size())
 	n, err := f.Read(bs)
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to read instructions: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to read instructions: %v", err), true }
 	} else if n != int(fi.Size()) {
-		return &DisplayMessage{ fmt.Sprintf("Expected %d bytes, read %d bytes", fi.Size(), n), true }
+		return DisplayMessage{ fmt.Sprintf("Expected %d bytes, read %d bytes", fi.Size(), n), true }
 	}
 
 	err = json.Unmarshal(bs, &instructions)
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to unmarshal instructions: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to unmarshal instructions: %v", err), true }
 	}
 
 	lookup = map[uint8]Instruction{}
@@ -135,13 +135,13 @@ func ReadInstructions() *DisplayMessage {
 		lookup[instruction.OpCode] = instruction
 	}
 
-	return &DisplayMessage { "Instructions loaded", false }
+	return DisplayMessage { "Instructions loaded", false }
 }
 
-func WriteInstructions() *DisplayMessage {
+func WriteInstructions() DisplayMessage {
 	f, err := os.Create("instructions/instructions.bin")
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to create instruction file: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to create instruction file: %v", err), true }
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
@@ -151,13 +151,13 @@ func WriteInstructions() *DisplayMessage {
 
 	bs, err := json.Marshal(instructions)
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to marshal instructions: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to marshal instructions: %v", err), true }
 	}
 	_, err = f.Write(bs)
 	if err != nil {
-		return &DisplayMessage{ fmt.Sprintf("Failed to write instructions: %v", err), true }
+		return DisplayMessage{ fmt.Sprintf("Failed to write instructions: %v", err), true }
 	}
-	return &DisplayMessage { "Instructions saved", false }
+	return DisplayMessage { "Instructions saved", false }
 }
 
 

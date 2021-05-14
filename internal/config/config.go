@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	defSerialBaudRate  = 19200
+	defSerialBaudRate  = 9600
 	defSerialDataBits  = 8
 	defSerialStopBits  = 1
 	defMinimumReadSize = 8
+	defSerialParity    = 0
 
 	defTerminalWidth   = 80
 	defTerminalHeight  = 50
@@ -36,6 +37,7 @@ type Serial struct {
 	BaudRate        int    `mapstructure:"baud_rate"`
 	DataBits        int    `mapstructure:"data_bits"`
 	StopBits        int    `mapstructure:"stop_bits"`
+	Parity          int    `mapstructure:"parity"`
 	MinimumReadSize int    `mapstructure:"minimum_read_size"`
 }
 
@@ -51,6 +53,7 @@ func DefaultConfig () *Config {
 			BaudRate:        defSerialBaudRate,
 			DataBits:        defSerialDataBits,
 			StopBits:        defSerialStopBits,
+			Parity:          defSerialParity,
 			MinimumReadSize: defMinimumReadSize,
 		},
 		Terminal: &Terminal{

@@ -31,8 +31,8 @@ var rootCmd = &cobra.Command{
 		} else {
 			driver.LoadRom(config.CLIConfig.RomFile)
 		}
-		driver.Run()
 
+		driver.Run()
 		return nil
 	},
 }

@@ -1,0 +1,3 @@
+serial:
+  port_name: "/dev/cu.usbserial-1431110"
+  baud_rate: 115200

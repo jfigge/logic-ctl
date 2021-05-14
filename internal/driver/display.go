@@ -105,11 +105,13 @@ type DisplayMessage struct {
 func NewDisplay() (*Display, error) {
 	display := Display{fd: int(os.Stdin.Fd())}
 
-	if w,h,e := xterm.GetSize(int(os.Stdin.Fd())); e != nil {
-		return nil, e
-	} else {
-		display.cols = w
-		display.rows = h
+	for display.cols ==- 0 {
+		if w, h, e := xterm.GetSize(int(os.Stdin.Fd())); e != nil {
+			return nil, e
+		} else {
+			display.cols = w
+			display.rows = h
+		}
 	}
 
 	if s, e := xterm.GetState(int(os.Stdin.Fd())); e != nil {
@@ -118,6 +120,7 @@ func NewDisplay() (*Display, error) {
  		display.state = s
 	}
 
+	display.HideCursor()
 	display.dirty = true
 	return &display, nil
 }
@@ -235,15 +238,18 @@ func (d *Display) Progress(text string, percent int) {
 
 	d.Print(fmt.Sprintf("%s [%s]", text, str))
 }
-func (d *Display) Notify(text string, colour string) {
-
+func (d *Display) ClearNotify() {
 	if d.noticeTimer != nil {
 		d.noticeTimer.Stop()
 		d.noticeTimer = nil
+		d.notice = ""
 	}
-
 	d.At(1, d.rows)
 	d.Cll()
+}
+func (d *Display) Notify(text string, colour string) {
+
+	d.ClearNotify()
 	str := fmt.Sprintf("%s%s%s", colour, text, Reset)
 	d.Print(str)
 
@@ -263,7 +269,7 @@ func (d *Display) Notify(text string, colour string) {
 		}
 	}()
 }
-func (d *Display) NotifyDM(dm *DisplayMessage) {
+func (d *Display) NotifyDM(dm DisplayMessage) {
 	if dm.IsError {
 		d.Error(dm.Message)
 	} else {
@@ -292,7 +298,7 @@ func (d *Display) Draw() {
 	d.Cls()
 
 	// Memory
-	lines := MemoryBlock(0)
+	lines := MemoryBlock(address)
 	for row, line := range lines {
 		if ok := d.PrintAt(line, 1, row + 1); !ok {
 			break
@@ -378,6 +384,12 @@ func (d *Display)ReadChar() (ascii int, keyCode int, err error) {
 	t.Restore()
 	t.Close()
 	return
+}
+func (d *Display)PressAnyKey() {
+	d.ClearNotify()
+	d.Print(fmt.Sprintf("%sPress any key%s", Yellow, Reset))
+	d.ReadChar()
+	d.SetDirty()
 }
 
 // Miscellaneous static functions
