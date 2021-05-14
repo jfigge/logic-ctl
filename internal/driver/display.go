@@ -96,14 +96,18 @@ type Display struct {
 	noticeTimer *time.Timer
 	notice string
 	dirty  bool
+	history *History
 }
 type DisplayMessage struct {
 	Message string
 	IsError bool
 }
 
-func NewDisplay() (*Display, error) {
-	display := Display{fd: int(os.Stdin.Fd())}
+func NewDisplay(h *History) (*Display, error) {
+	display := Display{
+		fd: int(os.Stdin.Fd()),
+		history: h,
+	}
 
 	for display.cols ==- 0 {
 		if w, h, e := xterm.GetSize(int(os.Stdin.Fd())); e != nil {
@@ -119,7 +123,6 @@ func NewDisplay() (*Display, error) {
  	} else {
  		display.state = s
 	}
-
 	display.HideCursor()
 	display.dirty = true
 	return &display, nil
@@ -252,6 +255,7 @@ func (d *Display) Notify(text string, colour string) {
 	d.ClearNotify()
 	str := fmt.Sprintf("%s%s%s", colour, text, Reset)
 	d.Print(str)
+	d.history.Add(str)
 
 	d.notice = str
 	d.noticeTimer = time.NewTimer(5 * time.Second)
@@ -317,7 +321,7 @@ func (d *Display) Draw() {
 	// Instr
 	d.PrintAt(Yellow + "Instructions", xOffset + 3, 7)
 	d.PrintAt(Step(), xOffset, 5)
-	lines = InstructionsBlock(2, 11)
+	lines = InstructionsBlock(task)
 	for i := 0 ; i < 11; i++ {
 		d.PrintAt(lines[uint16(i)], xOffset, 8 + i)
 	}

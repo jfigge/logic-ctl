@@ -76,6 +76,9 @@ func MemoryBlock(start uint16) (lines []string) {
 	if uint32(start) + 256 > 65535 {
 		start = 65535 - 256
 	}
+	// Round down to nearest block
+	start -= start % 128
+
 
 	lines = append(lines, Yellow + "     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F" + Reset)
 

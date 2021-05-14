@@ -85,12 +85,14 @@ const (
 	IND
 )
 
+const (
+	lineCount = 11
+)
+
 var (
 	instructions Instructions
 	lookup map[uint8]Instruction
 )
-
-
 
 type Instructions []Instruction
 type Instruction struct {
@@ -161,13 +163,19 @@ func WriteInstructions() DisplayMessage {
 }
 
 
-func InstructionsBlock(start, length uint16) (lines []string) {
-	i := int(start) - 5
-	for uint16(len(lines)) < length {
+func InstructionsBlock(current int) (lines []string) {
+	highlight := lineCount / 2
+	i := current - highlight
+	if i < 0 {
+		highlight += i
+		i = 9
+	}
+
+	for len(lines) < lineCount {
 		if i > len(memory) || i < 0 {
 			lines = append(lines, "")
 		} else if Disassemly[uint16(i)] > "" {
-			if len(lines) == 5 {
+			if len(lines) == highlight {
 				lines = append(lines, BrightMagenta+Disassemly[uint16(i)]+Reset)
 			} else {
 				lines = append(lines, Magenta+Disassemly[uint16(i)]+Reset)

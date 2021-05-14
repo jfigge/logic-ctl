@@ -5,14 +5,19 @@ import (
 	"os"
 )
 
-var display *Display
+var (
+	display Display
+	history History
+	task = 0
+)
 
 func NewDriver() {
-	if d,e := NewDisplay(); e != nil {
+	history = History{}
+	if d,e := NewDisplay(&history); e != nil {
 		fmt.Printf("Failed to initialize terminal: %v", e)
 		os.Exit(1)
 	} else {
-		display = d
+		display = *d
 	}
 	display.NotifyDM(ReadInstructions())
 }
@@ -53,15 +58,15 @@ func Run() {
 			case 'q':
 				loop = false
 			case 'h':
-				display.HideCursor()
-				display.Info("Hide")
-			case 's':
-				display.ShowCursor()
-				display.Info("Show")
+				history.Draw(&display)
+
 			case 'n':
 				N()
 			case 't':
 				Next()
+			case 'T':
+				task++
+				display.SetDirty()
 			case 'r':
 				display.NotifyDM(ReadInstructions())
 			case 'w':
