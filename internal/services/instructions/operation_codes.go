@@ -1,8 +1,9 @@
-package driver
+package instructions
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"os"
 )
 
@@ -25,18 +26,18 @@ const (
 	// a flag saying it has potential, as does each instruction. If both instruction
 	// and address function return 1, then an additional clock cycle is required.
 
-	//Address Mode: Immediate
+	// IMM Address Mode: Immediate
 	// The instruction expects the next byte to be used as a value, so we'll prep
 	// the read address to point to the next byte
 	IMM = iota + 1
 
-	// Address Mode: Implied
+	// IMP Address Mode: Implied
 	// There is no additional data required for this instruction. The instruction
 	// does something very simple like like sets a status bit. However, we will
 	// target the accumulator, for instructions like PHA
 	IMP
 
-	// Address Mode: Indirect X/Y
+	// IZX Address Mode: Indirect X/Y
 	// The supplied 8-bit address indexes a location in page 0x00. From
 	// here the actual 16-bit address is read, and the contents of
 	// Y Register is added to it to offset it. If the offset causes a
@@ -44,37 +45,37 @@ const (
 	IZX
 	IZY
 
-	// Address Mode: Zero Page
+	// ZPG Address Mode: Zero Page
 	// To save program bytes, zero page addressing allows you to absolutely address
 	// a location in first 0xFF bytes of address range. Clearly this only requires
 	// one byte instead of the usual two.
 	ZPG
 
-	// Address Mode: Zero Page with X/Y Offset
+	// ZPX Address Mode: Zero Page with X/Y Offset
 	// Fundamentally the same as Zero Page addressing, but the contents of the X Register
 	// is added to the supplied single byte address. This is useful for iterating through
 	// ranges within the first page.
 	ZPX
 	ZPY
 
-	// Address Mode: Relative
+	// REL Address Mode: Relative
 	// This address mode is exclusive to branch instructions. The address
 	// must reside within -128 to +127 of the branch instruction, i.e.
 	// you cant directly branch to any address in the addressable range.
 	REL
 
-	// Address Mode: Absolute
+	// ABS Address Mode: Absolute
 	// A full 16-bit address is loaded and used
 	ABS
 
-	// Address Mode: Absolute with X/Y Offset
+	// ABX Address Mode: Absolute with X/Y Offset
 	// Fundamentally the same as absolute addressing, but the contents of the Y Register
 	// is added to the supplied two byte address. If the resulting address changes
 	// the page, an additional clock cycle is required
 	ABX
 	ABY
 
-	// Address Mode: Indirect
+	// IND Address Mode: Indirect
 	// The supplied 16-bit address is read to get the actual 16-bit address. This is
 	// instruction is unusual in that it has a bug in the hardware! To emulate its
 	// function accurately, we also need to emulate this bug. If the low byte of the
@@ -83,106 +84,97 @@ const (
 	// designed, instead it wraps back around in the same page, yielding an
 	// invalid actual address
 	IND
+
+	opCodes = "internal/services/instructions/opCodes.bin"
 )
 
-const (
-	lineCount = 11
-)
-
-var (
-	instructions Instructions
-	lookup map[uint8]Instruction
-)
-
-type Instructions []Instruction
-type Instruction struct {
-	Name     string       `json:"name"`
-	OpCode   uint8        `json:"opCode"`
-	AddrMode uint8        `json:"addrMode"`
-	Steps    uint8        `json:"steps"`
-	Lines    [7][3]uint16 `json:"lines"`
+type OperationCodes struct {
+	opCodes  []OpCode
+	lookup  map[uint8]OpCode
+	log     *logging.Log
+}
+func New(log *logging.Log) *OperationCodes {
+	return &OperationCodes{
+		log: log,
+	}
+}
+type OpCode struct {
+	Name     string        `json:"name"`
+	OpCode   uint8         `json:"opCode"`
+	AddrMode uint8         `json:"addrMode"`
+	Steps    uint8         `json:"steps"`
+	Lines    [3][16]uint16 `json:"lines"`
 }
 
-func ReadInstructions() DisplayMessage {
-	f, err := os.Open("instructions/instructions.bin")
+func (op *OperationCodes) Lookup(opcode uint8) OpCode {
+	return op.lookup[opcode]
+}
+func (op *OperationCodes) ReadInstructions() (result bool) {
+	f, err := os.Open(opCodes)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to open instruction file: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to open opCodes file: %v", err))
+		return false
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			display.Warn(fmt.Sprintf("Trouble closing instruction file: %v", err))
+			op.log.Error(fmt.Sprintf("Trouble closing opCodes file: %v", err))
+			result = false
 		}
 	}()
 
 	fi, err := f.Stat()
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to retrieve file info: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to retrieve file info: %v", err))
+		return false
 	}
 
 	bs := make([]byte, fi.Size())
 	n, err := f.Read(bs)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to read instructions: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to retrieve file info: %v", err))
+		return false
 	} else if n != int(fi.Size()) {
-		return DisplayMessage{ fmt.Sprintf("Expected %d bytes, read %d bytes", fi.Size(), n), true }
+		op.log.Error(fmt.Sprintf("Expected %d bytes, read %d bytes", fi.Size(), n))
+		return false
 	}
 
-	err = json.Unmarshal(bs, &instructions)
+	err = json.Unmarshal(bs, &op.opCodes)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to unmarshal instructions: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to unmarshal opCodes: %v", err))
+		return false
 	}
 
-	lookup = map[uint8]Instruction{}
-	for _, instruction := range instructions {
-		lookup[instruction.OpCode] = instruction
+	op.lookup = map[uint8]OpCode{}
+	for _, instruction := range op.opCodes {
+		op.lookup[instruction.OpCode] = instruction
 	}
 
-	return DisplayMessage { "Instructions loaded", false }
+	op.log.Info("OpCodes loaded")
+	return true
 }
-
-func WriteInstructions() DisplayMessage {
-	f, err := os.Create("instructions/instructions.bin")
+func (op *OperationCodes) WriteInstructions() (result bool) {
+	f, err := os.Create(opCodes)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to create instruction file: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to create instruction file: %v", err))
+		return false
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			display.Warn(fmt.Sprintf("Trouble closing instruction file: %v", err))
+			op.log.Error(fmt.Sprintf("Trouble closing opCodes file: %v", err))
+			result = false
 		}
 	}()
 
-	bs, err := json.Marshal(instructions)
+	bs, err := json.Marshal(op.opCodes)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to marshal instructions: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to marshal opCodes: %v", err))
+		return false
 	}
 	_, err = f.Write(bs)
 	if err != nil {
-		return DisplayMessage{ fmt.Sprintf("Failed to write instructions: %v", err), true }
+		op.log.Error(fmt.Sprintf("Failed to write opCodes: %v", err))
+		return false
 	}
-	return DisplayMessage { "Instructions saved", false }
+	op.log.Info("OpCodes saved")
+	return true
 }
-
-
-func InstructionsBlock(current int) (lines []string) {
-	highlight := lineCount / 2
-	i := current - highlight
-	if i < 0 {
-		highlight += i
-		i = 9
-	}
-
-	for len(lines) < lineCount {
-		if i > len(memory) || i < 0 {
-			lines = append(lines, "")
-		} else if Disassemly[uint16(i)] > "" {
-			if len(lines) == highlight {
-				lines = append(lines, BrightMagenta+Disassemly[uint16(i)]+Reset)
-			} else {
-				lines = append(lines, Magenta+Disassemly[uint16(i)]+Reset)
-			}
-		}
-		i++
-	}
-	return
-}
-
