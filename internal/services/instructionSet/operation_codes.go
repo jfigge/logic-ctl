@@ -98,12 +98,13 @@ func New(log *logging.Log) *OperationCodes {
 		log: log,
 	}
 }
+
 type OpCode struct {
-	Name     string        `json:"name"`
-	OpCode   uint8         `json:"opCode"`
-	AddrMode uint8         `json:"addrMode"`
-	Steps    uint8         `json:"steps"`
-	Lines    [3][16]uint16 `json:"lines"`
+	Name     string              `json:"name"`
+	OpCode   uint8               `json:"opCode"`
+	AddrMode uint8               `json:"addrMode"`
+	Steps    uint8               `json:"steps"`
+	Lines    [8][2][3] uint16    `json:"lines"`
 }
 
 func (op *OperationCodes) Lookup(opcode uint8) OpCode {
