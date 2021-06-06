@@ -22,12 +22,13 @@ const (
 const (
 	E3_CLK2 = 1 << iota // Clock Phi-2
 	E3_CLK1             // Clock Phi-1
-	E3_FLGI             // Value for I Flag (0=Off, 1=On)
-	E3_FLGZ             // Flag Z/I selector bit 1 (0=Value, 1=Bus)
-	E3_FLGC             // Flag C selector bit 0 (0=Value, 1=Bus)
-	E3_FLGV             // Flag V selector bit 6 (0=Value, 1=Bus)
-	E3_FLGN             // Flag N selector bit 7 (0=Value, 1=Bus)
-	E3_FLGS             // Flags selector (0=Register/I, 1=Value/Bus)
+	E3_FLGI             // Custom flag value (0=Off, 1=On)
+	E3_FLGZ             // Flag Z/I selector bit 1 (0=Reg/I, 1=Reg/Bus)
+	E3_FLGC             // Flag C selector bit 0 (0=first, 1=second)
+	E3_FLGV             // Flag V selector bit 6 (0=first, 1=second)
+	E3_FLGN             // Flag N selector bit 7 (0=CPU, 1=Bus)
+	E3_FLGS             // Flag selector (0=Register/Custom, 1=CPU/Bus)
+
 	E3_SBD2             // Special Bus driver 4-bit
 	E3_SBD1             // Special Bus driver 2-bit
 	E3_SBD0             // Special Bus driver 1-bit
@@ -163,12 +164,12 @@ var (
 		"Special Bus driver 2-bit",
 		"Special Bus driver 4-bit",
 		// EPROM 3b
-		"Flags selector (0=Register/I, 1=Value/Bus)",
-		"Flag N selector bit 7 (0=Value, 1=Bus)",
-		"Flag V selector bit 6 (0=Value, 1=Bus)",
-		"Flag C selector bit 0 (0=Value, 1=Bus)",
-		"Flag Z/I selector bit 1 (0=Value, 1=Bus/I)",
-		"Value for I Flag (0=Off, 1=On)",
+		"Flag selector (0=Register/Custom, 1=CPU/Bus)",
+		"Flag N selector bit 7 (0=CPU, 1=Bus)",
+		"Flag V selector bit 6 (0=first, 1=second)",
+		"Flag C selector bit 0 (0=first, 1=second)",
+		"Flag Z/I selector bit 1 (0=Reg/I, 1=Reg/Bus)",
+		"Custom flag value (0=Off, 1=On)",
 		"Clock Phi-1",
 		"Clock Phi-2",
 	}
