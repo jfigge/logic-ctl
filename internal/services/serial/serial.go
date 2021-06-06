@@ -30,11 +30,11 @@ type Serial struct {
 	log        *logging.Log
 	setDirty   func()
 	setStatus  func(uint8)
-	tick       func()
+	tick       func(synchronized bool)
 	dirty      bool
 	initialize bool
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8), tick func()) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8), tick func(synchronized bool)) *Serial {
 	s := &Serial{
 		clock:     clock,
 		irq:       irq,
@@ -106,7 +106,8 @@ func (s *Serial) Disconnect() bool {
 func (s *Serial) Reconnect() {
 	s.Connect(true)
 	if s.IsConnected() {
-		s.tick()
+		s.SetDirty(true)
+		s.tick(true)
 	}
 }
 func (s *Serial) IsConnected() bool {

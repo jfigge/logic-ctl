@@ -72,7 +72,7 @@ func (d *Driver) Run() {
 		os.Exit(1)
 	}
 	d.serial.Connect(false)
-	d.tickAction()
+	d.tick(true)
 	d.ready = true
 
 	for len(d.UIs) > 0 {
@@ -80,14 +80,13 @@ func (d *Driver) Run() {
 			d.serial.Reconnect()
 		}
 		d.UIs[0].Draw(d.display)
-		a, k, e := d.ReadChar()
-		if e != nil {
-
-		}
-		if a != 0 || k != 0 {
-			if d.UIs[0].Process(a, k) {
-				d.UIs = d.UIs[1:]
-				d.UIs[0].SetDirty(true)
+		if d.serial.IsConnected() {
+			a, k, _ := d.ReadChar()
+			if a != 0 || k != 0 {
+				if d.UIs[0].Process(a, k) {
+					d.UIs = d.UIs[1:]
+					d.UIs[0].SetDirty(true)
+				}
 			}
 		}
 	}
@@ -99,6 +98,15 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	x, _ := term.Open("/dev/tty")
 	if x == nil {
 		return 0, 0, fmt.Errorf("unavailable")
+	} else {
+		defer func() {
+			if err := x.Restore(); err != nil {
+				d.log.Errorf("Failed to restore terminal mode: %v", err)
+			}
+			if err := x.Close(); err != nil {
+				d.log.Errorf("Failed to close terminal input: %v", err)
+			}
+		}()
 	}
 
 	if err := term.RawMode(x); err != nil {
@@ -146,12 +154,6 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 		d.log.Warn("Two character read unexpected")
 		// Two characters read??
 	}
-	if err := x.Restore(); err != nil {
-		d.log.Errorf("Failed to restore terminal mode: %v", err)
-	}
-	if err := x.Close(); err != nil {
-		d.log.Errorf("Failed to close terminal input: %v", err)
-	}
 	return
 }
 func (d *Driver) SetAddress(address uint16) {
@@ -176,10 +178,14 @@ func (d *Driver) redraw() {
 func (d *Driver) reinitialize() {
 	d.UIs[0].SetDirty(true)
 }
-func (d *Driver) tick() {
-	go d.tickAction()
+func (d *Driver) tick(synchronized bool) {
+	if synchronized {
+		tickFunc(d)
+	} else {
+		go tickFunc(d)
+	}
 }
-func (d *Driver) tickAction() {
+func tickFunc(d *Driver) {
 	if state, ok := d.serial.ReadStatus(); ok { d.status.SetStatus(state) } else { return }
 	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address) } else { return }
 	if opCode, ok := d.serial.ReadOpCode(); ok { d.SetOpCode(opCode) } else { return }

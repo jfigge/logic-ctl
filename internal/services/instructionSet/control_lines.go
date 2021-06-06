@@ -22,7 +22,7 @@ const (
 const (
 	E3_CLK2 = 1 << iota // Clock Phi-2
 	E3_CLK1             // Clock Phi-1
-	E3_FLGI             // Set bit for flag Interrupt disabling
+	E3_FLGI             // Value for I Flag (0=Off, 1=On)
 	E3_FLGZ             // Flag Z/I selector bit 1 (0=Value, 1=Bus)
 	E3_FLGC             // Flag C selector bit 0 (0=Value, 1=Bus)
 	E3_FLGV             // Flag V selector bit 6 (0=Value, 1=Bus)
@@ -167,15 +167,15 @@ var (
 		"Flag N selector bit 7 (0=Value, 1=Bus)",
 		"Flag V selector bit 6 (0=Value, 1=Bus)",
 		"Flag C selector bit 0 (0=Value, 1=Bus)",
-		"Flag Z/I selector bit 1 (0=Value, 1=Bus)",
-		"Set bit for flag Interrupt disabling",
+		"Flag Z/I selector bit 1 (0=Value, 1=Bus/I)",
+		"Value for I Flag (0=Off, 1=On)",
 		"Clock Phi-1",
 		"Clock Phi-2",
 	}
 	defaults = [3]uint16 {
 		E1_TRST | E1_AHD0 | E1_AHC0 | E1_AHC1 | E1_PCLH | E1_PCLL | E1_IRLD | E1_DBRW | E1_PCIN| E1_ALD0 | E1_ALD1 | E1_ALD2,
 		E2_HALT | E2_UNU1 | E2_ALC0 | E2_ALC1 | E2_ALC2 | E2_SPLD | E2_ALLD | E2_AHLD,
-		E3_SBD2 | E3_SBD1 | E3_SBD0 | E3_SBLX | E3_SBLY | E3_SBLA,
+		E3_SBD2 | E3_SBD1 | E3_SBD0 | E3_SBLX | E3_SBLY | E3_SBLA | E3_FLGS,
 	}
 )
 type coord struct {
