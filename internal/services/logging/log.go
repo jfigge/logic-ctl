@@ -3,15 +3,17 @@ package logging
 import (
 	"fmt"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 	"sync"
 	"time"
 )
 
 type Log struct {
-	history    *History
-	sync       sync.Mutex
-	activeLMs  []activeLM
-	setDirty   func()
+	history   *History
+	sync      sync.Mutex
+	activeLMs []activeLM
+	redraw  func()
+	debug     bool
 }
 type LogMessage struct {
 	Message string
@@ -21,10 +23,11 @@ type activeLM struct {
 	Message string
 	timer *time.Timer
 }
-func New(setDirty func()) *Log {
+func New(redraw func()) *Log {
 	return &Log{
-		history:  &History{},
-		setDirty: setDirty,
+		history: &History{},
+		redraw:  redraw,
+		debug:   false,
 	}
 }
 
@@ -51,7 +54,7 @@ func (l *Log) Progress(text string, percent int) {
 }
 func (l *Log) Notify(text string, colour string) {
 
-	str := fmt.Sprintf("%s%s%s", colour, text, common.Reset)
+	str := fmt.Sprintf("%s%s%s%s", display.ClearLine, colour, text, common.Reset)
 	l.history.add(str)
 
 	l.sync.Lock()
@@ -62,10 +65,10 @@ func (l *Log) Notify(text string, colour string) {
 				l.sync.Lock()
 				l.activeLMs = l.activeLMs[:len(l.activeLMs) - 1]
 				l.sync.Unlock()
-				l.setDirty()
+				l.redraw()
 			})}}, l.activeLMs...)
 	l.sync.Unlock()
-	l.setDirty()
+	l.redraw()
 }
 func (l *Log) NotifyLM(lm LogMessage) {
 	if lm.IsError {
@@ -74,11 +77,42 @@ func (l *Log) NotifyLM(lm LogMessage) {
 		l.Info(lm.Message)
 	}
 }
+func (l *Log) SetDebug(enabled bool) {
+	if l.debug != enabled {
+		if enabled {
+			l.Info("Debug output enabled")
+			l.debug = true
+		} else {
+			l.Info("Debug output disabled")
+			l.debug = false
+		}
+	}
+}
+
+func (l *Log) Debugf(text string, a...interface{}) {
+	l.Debug(fmt.Sprintf(text, a...))
+}
+func (l *Log) Debug(text string) {
+	if l.debug {
+		l.Notify(text, common.White)
+	} else {
+		l.history.add(fmt.Sprintf("%s%s%s", common.White, text, common.Reset))
+	}
+}
+func (l *Log) Infof(text string, a...interface{}) {
+	l.Info(fmt.Sprintf(text, a...))
+}
 func (l *Log) Info(text string) {
 	l.Notify(text, common.BrightWhite)
 }
+func (l *Log) Warnf(text string, a...interface{}) {
+	l.Warn(fmt.Sprintf(text, a...))
+}
 func (l *Log) Warn(text string) {
 	l.Notify(text, common.BrightYellow)
+}
+func (l *Log) Errorf(text string, a...interface{}) {
+	l.Error(fmt.Sprintf(text, a...))
 }
 func (l *Log) Error(text string) {
 	l.Notify(text, common.BrightRed)
@@ -104,4 +138,3 @@ func (l *Log) HistoryViewer() common.UI {
 	l.history.initialize = true
 	return l.history
 }
-

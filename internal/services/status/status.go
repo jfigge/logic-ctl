@@ -17,23 +17,30 @@ const (
 
 var (
 	labels = [...]string{ "N", "V", "B", "D", "I", "Z", "C" }
-	bit    = [...]uint8 { 128,  64,  0,   0,  32,  16,  8  }
+	bit    = [...]uint8 { 128,  64, - 0,   0,  32,  16,  8  }
 )
 
 type Status struct {
-	flags     uint8
-	lastFlags uint8
-	log       *logging.Log
+	flags        uint8
+	currentFlags uint8
+	lastFlags    uint8
+	log          *logging.Log
 }
-
-func New(log *logging.Log) *Status {
+func NewStatus(log *logging.Log) *Status {
 	return &Status{
 		log: log,
 	}
 }
 
+func (s *Status) SetStatus(status uint8) {
+	s.flags = status
+	s.currentFlags = (status & 192) >> 4 | (status & 24) >> 3
+}
 func (s *Status) CurrentStep() uint8 {
 	return s.flags & 7
+}
+func (s *Status) CurrentFlags() uint8 {
+	return s.currentFlags
 }
 
 func (s *Status) FlagsBlock() string {
@@ -61,11 +68,10 @@ func (s *Status) FlagsBlock() string {
 	s.lastFlags = s.flags
 	return fmt.Sprintf("%s%s", str, common.Reset)
 }
-
 func (s *Status) StepBlock() string {
 	t, colour, lastColour := s.flags& 7, common.Yellow, ""
 	str := ""
-	for i := uint8(1); i < 8; i++ {
+	for i := uint8(0); i < 8; i++ {
 		colour = step
 		if i == t {
 			colour = currentStep
@@ -76,6 +82,3 @@ func (s *Status) StepBlock() string {
 	return str + common.Reset
 }
 
-func (s *Status) SetStatus(status uint8) {
-	s.flags = status
-}

@@ -6,178 +6,83 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/config"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
-	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructions"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/memory"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/serial"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
-	"github.td.teradata.com/sandbox/logic-ctl/internal/services/timing"
 	"os"
 	"time"
 )
 
-// Data Bus driver
-const (
-	DB_DEFAULT     = 0
-	DB_Accumulator = 1
-	DB_Flags       = 2
-	DB_SB          = 3
-	DB_PC_High     = 4
-	DB_PC_Low      = 5
-	DB_Input       = 6
-)
-
-// Address bus high driver
-const (
-	ADH_DEFAULT    = 1
-	ADH_Input      = 0
-	ADH_Constants  = 1
-	ADH_PC_High    = 2
-	ADH_SB         = 3
-)
-
-// Address bus low driver
-const (
-	ADL_DEFAULT    = 2
-	ADL_Input      = 0
-	ADL_PC_Low     = 1
-	ADL_Constants  = 2
-	ADL_SP         = 3
-	ADL_ADD        = 4
-)
-
-// Special Bus driver
-const (
-	SB_DEFAULT     = 7
-	SB_ACC         = 0
-	SB_Y_REG       = 1
-	SB_X_REG       = 2
-	SB_ADD         = 3
-	SB_SP          = 4
-	SB_DB          = 5
-	SB_ADH         = 6
-)
-
-const (
-	// EPROM 3b
-	Clk2 = iota // Clock Phi-2
-	Clk1        // Clock Phi-1
-	FlgI        // Set bit for flag Interrupt disabling
-	FlgZ        // Load flag N from bus (bit 0 / XOR FlagA)
-	FlgC        // Load flag V from bus (bit 1)
-	FlgV        // Load flag C from bus (bit 7)
-	FlgN        // Load flag Z/I from bus (bit 6)
-	FlgSA       // Set source of flags
-
-	// EPROM 3a
-	SBD2        // Special Bus driver 4-bit
-	SBD1        // Special Bus driver 2-bit
-	SBD0        // Special Bus driver 1-bit
-	SblX        // Special Bus load X
-	SblY        // Special Bus load Y
-	SblA        // Special Bus load Accumulator
-	ShSB        // Shift logic selector B (bit 2)
-	ShSA        // Shift logic selector A (bit 1)
-
-	// EPROM 2b
-	SHLR        // Shift logic Left / Right selector
-	ASOX        // ALU OR / XOR selector
-	ASSA        // ALU SUM / AND selector
-	ALBS    	// ALU Load B Selector (0 = 0, 1 = Special Bus)
-	ALAS		// ALU Load A Selector (0 = DB, 1 = ADL)
-	ALIB		// ALU Load Invert data bus
-	PAUS        // Set clock manual step mode
-	HALT        // Stop clock until reset
-
-	// EPROM 2a
-	UNU1		// Unused
-	NMIR        // Reset NMI latch
-	ALC0        // Address Low constant (0)
-	ALC1        // Address Low constant (1)
-	ALC2        // Address Low constant (2)
-	SPLD        // Stack pointer load
-	ADLL		// Load address bus low from ADL
-	ADLH		// Load address bus high from ADH
-
-	// EPROM 1b
-	PCLH        // Load program counter from ADH
-	PCLL        // Load program counter from ADL
-	PCIN        // Increment program counter
-	IRLD        // Instruction counter load
-	DOUT        // Enable data out
-	ALD0		// Address Bus driver 1-bit
-	ALD1		// Address Bus driver 2-bit
-	ALD2		// Address Bus driver 4-bit
-
-	// EPROM 1a
-	DBD0        // Data Bus driver 1-bit
-	DBD1        // Data Bus driver 2-bit
-	DBD2        // Data Bus driver 4-bit
-	AHC0		// Address Bus High Constant (0)
-	AHC1		// Address Bus High Constant (1-7)
-	AHD0        // Address High driver 1-bit
-	AHD1        // Address High driver 2-bit
-	TRST        // TRST Timer reset
-)
-
 type Driver struct {
 	address      uint16
+	opCode       *instructionSet.OpCode
 	display      *display.Terminal
-	clock        *timing.Clock
+	clock        *status.Clock
+	irq          *status.Irq
+	nmi          *status.Nmi
+	reset        *status.Reset
 	log          *logging.Log
 	serial       *serial.Serial
-	opCodes      *instructions.OperationCodes
+	opCodes      *instructionSet.OperationCodes
+	codes        *instructionSet.ControlLines
+	errorPage    *ErrorPage
 	memory       *memory.Memory
 	status       *status.Status
 	ready        bool
-	task         uint16
 	UIs          []common.UI
 	dirty        bool
 	initialize   bool
+	keyIntercept []common.Intercept
 }
 func New() *Driver {
 	d := Driver{}
+	time.Sleep(1 * time.Second)
 
 	var err error
 	if d.display, err = display.New(); err != nil {
-		fmt.Printf("Failed to gain control of terminal: %v", err)
+		fmt.Printf("%sFailed to gain control of terminal: %v%s\n", common.Red, err, common.Reset)
+		os.Exit(1)
+	} else if d.display.Rows() < 38 || d.display.Cols() < 100 {
+		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
 	d.UIs = append(d.UIs, &d)
+	d.errorPage = NewErrorPage()
+	d.log       = logging.New(d.redraw)
+	d.status    = status.NewStatus(d.log)
+	d.irq       = status.NewIrq(d.log)
+	d.nmi       = status.NewNmi(d.log)
+	d.reset     = status.NewReset(d.log)
+	d.opCodes   = instructionSet.New(d.log)
+	d.codes     = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
+	d.clock     = status.NewClock(d.log, d.tick)
+	d.serial    = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus, d.tick)
+	d.memory    = memory.New(d.log, d.opCodes)
 
-	d.log     = logging.New(d.reinitialize)
-	d.status  = status.New(d.log)
-	d.clock   = timing.New(d.log)
-	d.opCodes = instructions.New(d.log)
-	d.serial  = serial.New(d.log, d.clock, d.redraw)
-	d.memory  = memory.New(d.log, d.opCodes)
-
-	d.task = 0
+	d.keyIntercept = append(d.keyIntercept, d.codes)
 	return &d
 }
 
 func (d *Driver) Run() {
-	d.ready = true
 	d.display.Cls()
-	if !d.opCodes.ReadInstructions() {
-		d.log.Dump()
-		os.Exit(1)
-	}
 	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile) {
 		d.log.Dump()
 		os.Exit(1)
 	}
-	if !d.serial.Connect() {
-		d.log.Dump()
-		os.Exit(1)
-	}
+	d.serial.Connect(false)
+	d.tickAction()
+	d.ready = true
 
 	for len(d.UIs) > 0 {
+		if !d.serial.IsConnected() {
+			d.serial.Reconnect()
+		}
 		d.UIs[0].Draw(d.display)
 		a, k, e := d.ReadChar()
 		if e != nil {
-			fmt.Printf("Unexpected error: %v", e)
-			os.Exit(1)
+
 		}
 		if a != 0 || k != 0 {
 			if d.UIs[0].Process(a, k) {
@@ -192,8 +97,14 @@ func (d *Driver) Run() {
 
 func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	x, _ := term.Open("/dev/tty")
+	if x == nil {
+		return 0, 0, fmt.Errorf("unavailable")
+	}
+
 	if err := term.RawMode(x); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to access terminal RawMode: %v", err))
+		str := fmt.Sprintf("Failed to access terminal RawMode: %v", err)
+		d.log.Error(str)
+		d.UIs = append([]common.UI{d.errorPage.ErrorViewer(str)}, d.UIs...)
 	}
 	bs := make([]byte, 3)
 
@@ -203,6 +114,12 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	if numRead, err := x.Read(bs); err != nil {
 		if err.Error() != "EOF" {
 			d.log.Warn("Input error.  Resetting")
+			if err := x.Restore(); err != nil {
+				d.log.Errorf("Failed to restore terminal mode: %v", err)
+			}
+			if err := x.Close(); err != nil {
+				d.log.Errorf("Failed to close terminal input: %v", err)
+			}
 		}
 		return 0, 0, nil
 	} else if numRead == 3 && bs[0] == 27 && bs[1] == 91 {
@@ -230,23 +147,59 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 		// Two characters read??
 	}
 	if err := x.Restore(); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to restore terminal mode: %v", err))
+		d.log.Errorf("Failed to restore terminal mode: %v", err)
 	}
 	if err := x.Close(); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to close terminal input: %v", err))
+		d.log.Errorf("Failed to close terminal input: %v", err)
 	}
 	return
 }
 func (d *Driver) SetAddress(address uint16) {
-	d.address = address
-	d.log.Info(fmt.Sprintf("Address set to %s", display.HexAddress(d.address)))
-	d.SetDirty(false)
+	if d.address != address {
+		d.address = address
+		d.log.Debugf("Address set to %s", display.HexAddress(d.address))
+	}
 }
+func (d *Driver) SetOpCode(opCode uint8) {
+	if d.opCode == nil || d.opCode.OpCode != opCode {
+		d.opCode = d.opCodes.Lookup(opCode)
+		hex := display.HexData(opCode)
+		str := fmt.Sprintf("OpCode set to %s (%s)", hex, d.opCode.Name)
+		d.log.Debug(str)
+		d.SetDirty(true)
+	}
+}
+
 func (d *Driver) redraw() {
 	d.UIs[0].SetDirty(false)
 }
 func (d *Driver) reinitialize() {
 	d.UIs[0].SetDirty(true)
+}
+func (d *Driver) tick() {
+	go d.tickAction()
+}
+func (d *Driver) tickAction() {
+	if state, ok := d.serial.ReadStatus(); ok { d.status.SetStatus(state) } else { return }
+	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address) } else { return }
+	if opCode, ok := d.serial.ReadOpCode(); ok { d.SetOpCode(opCode) } else { return }
+	d.log.Debug(fmt.Sprintf("Ocdode: %d, Flags: %d, Step: %d, State: %d", d.opCode.OpCode, d.status.CurrentFlags(), d.status.CurrentStep(), d.clock.CurrentState()))
+
+	d.serial.SetLines(d.opCode.Lines[d.status.CurrentFlags()][d.status.CurrentStep()][d.clock.CurrentState()])
+}
+func (d *Driver) setLine(step uint8, clock uint8, eprom uint8, bit uint16, value uint8) {
+	flags := d.status.CurrentFlags()
+	mask := uint16(1 << bit)
+	switch value{
+		case 0: d.opCode.Lines[flags][step][clock][eprom] = d.opCode.Lines[flags][step][clock][eprom] &^ mask
+		case 1: d.opCode.Lines[flags][step][clock][eprom] = d.opCode.Lines[flags][step][clock][eprom] | mask
+		case 2: d.opCode.Lines[flags][step][clock][eprom] = d.opCode.Lines[flags][step][clock][eprom] ^ mask
+	}
+	if step == d.status.CurrentStep() &&
+	   clock == d.clock.CurrentState() {
+		d.serial.SetLines(d.opCode.Lines[flags][step][clock])
+	}
+	d.redraw()
 }
 
 func (d *Driver) Draw(t *display.Terminal) {
@@ -256,64 +209,110 @@ func (d *Driver) Draw(t *display.Terminal) {
 		return
 	}
 
+	d.display.HideCursor()
+
 	if d.initialize {
 		t.Cls()
 		d.initialize = false
 	}
 
-	c := t.Col()
-	r := t.Row()
-
 	// Memory
 	lines := d.memory.MemoryBlock(d.address)
 	for row, line := range lines {
-		if ok := t.PrintAt(line, 1, row+1); !ok {
+		if ok := t.PrintAt(1, row+1, line); !ok {
 			break
 		}
 	}
 	xOffset := len(display.StripFormatting(lines[0])) + 3
 
+	// Indicate if the board is connected
+	colour := common.BGGreen
+	if !d.serial.IsConnected() {
+		colour = common.BGRed
+	}
+	d.display.PrintAtf(1, 1, "%s   %s" , colour, common.Reset)
+
+	// IRQ
+	t.PrintAtf(xOffset+29, 1, "%sIRQ", common.Yellow)
+	t.PrintAt(xOffset+30, 2, d.irq.IrqBlock())
+
+	// NMI
+	t.PrintAtf(xOffset+39, 1, "%sNMI", common.Yellow)
+	t.PrintAt(xOffset+40, 2, d.nmi.NmiBlock())
+
 	// Clock
-	t.PrintAt(common.Yellow+"Clock", xOffset+28, 1)
-	t.PrintAt(d.clock.Block(), xOffset+30, 2)
+	t.PrintAtf(xOffset+28, 4, "%sClock", common.Yellow)
+	t.PrintAt(xOffset+30, 5, d.clock.Block())
+
+	// Reset
+	t.PrintAtf(xOffset+38, 4, "%sReset", common.Yellow)
+	t.PrintAt(xOffset+40, 5, d.reset.ResetBlock())
 
 	// FLags
-	t.PrintAt(common.Yellow+"Flags", xOffset+6, 1)
-	t.PrintAt(d.status.FlagsBlock(), xOffset, 2)
+	t.PrintAtf(xOffset+6, 1, "%sFlags", common.Yellow)
+	t.PrintAt(xOffset, 2, d.status.FlagsBlock())
 
 	// Timing
-	t.PrintAt(common.Yellow+"Step", xOffset+6, 4)
-	t.PrintAt(d.status.StepBlock(), xOffset, 5)
+	t.PrintAtf(xOffset+6, 4, "Step%s", common.Yellow)
+	t.PrintAt(xOffset, 5, d.status.StepBlock())
 
 	// Instr
-	t.PrintAt(common.Yellow+"Instructions", xOffset+3, 7)
-	lines = d.memory.InstructionBlock(d.task)
+	t.PrintAtf(xOffset+3, 7, "%sInstructions", common.Yellow)
+	lines = d.memory.InstructionBlock(d.address)
 	for i := 0; i < 11; i++ {
-		t.PrintAt(lines[uint16(i)], xOffset, 8+i)
+		t.PrintAt(xOffset, 8+i, lines[uint16(i)])
 	}
 
 	// Control lines
-	t.PrintAt(common.Yellow+"Control Lines", 1, 20)
-	for i := uint8(0); i < 7; i++ {
-		colour := common.Red
-		if i+1 == d.status.CurrentStep() {
-			colour = common.Cyan
+	offset := d.display.Rows() - 5
+	var aLines []string
+	if d.serial.IsConnected() {
+		t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
+		lines, aLines = d.opCode.Block(d.status.CurrentFlags(), d.status.CurrentStep(), d.clock.CurrentState())
+		for i := 0; i < len(lines); i++ {
+			t.PrintAt(1, 21+i, lines[i])
 		}
-		t.PrintAt(fmt.Sprintf("%sT%d %s 1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1  1 0 1 0 1 1 1 1 %s", common.Yellow, i+1, colour, common.Reset), 1, 21+int(i))
+
+		t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
+		for i := 0; i < 12; i++ {
+			str := ""
+			if i < len(aLines) {
+				str = aLines[i]
+			}
+			t.PrintAtf(66, 21 + i, "%s%s%s%s", display.ClearEnd, common.Magenta , str, common.Reset)
+		}
+
+		// Control line names
+		offset := len(lines)
+		lines = d.codes.LineNamesBlock()
+		for i, line := range lines {
+			t.PrintAt(9, 21 + offset + i, line)
+		}
+		offset = 20 + offset + len(lines)
+
+		d.display.ShowCursor()
 	}
+
+	// X and Y coordinates of cursor
+	str := d.codes.CursorPosition()
+	d.display.PrintAt(d.display.Cols() - len(str), d.display.Rows(), str)
 
 	// Notifications
 	lines = d.log.LogBlock()
-	if len(lines) > 5 {
-		lines = lines[:5]
+	max := d.display.Rows() - offset
+	if len(lines) > max {
+		lines = lines[:max]
+	}
+	for i := 0; i < max; i++ {
+		line := display.ClearLine
+		if i < len(lines) {
+			line = lines[i]
+		}
+		d.display.PrintAtf(1, d.display.Rows() - i, "%s%s", display.ClearLine, line)
 	}
 
-	str := fmt.Sprintf("%%-%ds", d.display.Cols())
-	for i, line := range lines {
-		d.display.PrintAt(fmt.Sprintf(str, line), 1, d.display.Rows() - i)
-	}
-
-	t.At(c, r)
+	// Restore cursor position
+	d.codes.PositionCursor()
 	d.dirty = false
 }
 func (d *Driver) SetDirty(initialize bool) {
@@ -323,38 +322,43 @@ func (d *Driver) SetDirty(initialize bool) {
 	}
 }
 func (d *Driver) Process(a int, k int) bool {
-	if k != 0 {
-		switch k {
-		case display.CursorUp:
-			d.display.Up(1)
-		case display.CursorDown:
-			d.display.Down(1)
-		case display.CursorLeft:
-			d.display.Left(1)
-		case display.CursorRight:
-			d.display.Right(1)
-		default:
-			d.log.Warn(fmt.Sprintf("Unknown code: [%v]", k))
+	for _, ki := range d.keyIntercept {
+		if ki.KeyIntercept(a,k) {
+			return false
 		}
+	}
+	if k != 0 {
+		d.log.Warnf("Unknown code: [%v]", k)
 	} else {
 		switch a {
 		case 'a':
 			if a, ok := d.serial.ReadAddress(); ok {
 				d.SetAddress(a)
+				d.SetDirty(false)
+			}
+		case 's':
+			if s, ok := d.serial.ReadStatus(); ok {
+				d.status.SetStatus(s)
+				d.SetDirty(false)
 			}
 		case 'q':
 			return true
+		case 'd':
+			d.log.SetDebug(false)
+		case 'D':
+			d.log.SetDebug(true)
+		case 'H':
+			d.codes.ShowNames(!d.codes.IsShowNames())
 		case 'h':
 			d.UIs = append([]common.UI{d.log.HistoryViewer()}, d.UIs...)
+		case 'm':
+			d.opCodes.ToggleMnemonic()
+			d.redraw()
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
-		case 'n':
-			d.log.Info(fmt.Sprintf("Hello: %d", d.address))
-			d.SetAddress(d.address + 1)
 		default:
-			d.log.Warn(fmt.Sprintf("Unmapped ascii code: [%c]", a))
+			d.log.Warnf("Unmapped ascii code: [%c]", a)
 		}
 	}
-
 	return false
 }

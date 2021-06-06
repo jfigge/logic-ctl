@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defSerialBaudRate  = 9600
+	defSerialBaudRate  = 115200
 	defSerialDataBits  = 8
 	defSerialStopBits  = 1
 	defMinimumReadSize = 8

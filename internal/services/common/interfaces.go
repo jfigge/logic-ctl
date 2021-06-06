@@ -9,3 +9,7 @@ type UI interface {
 	SetDirty(initialize bool)
 	Process(ascii int, keyCode int) bool
 }
+
+type Intercept interface {
+	KeyIntercept(ascii int, keyCode int) bool
+}

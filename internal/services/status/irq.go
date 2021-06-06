@@ -1,4 +1,4 @@
-package timing
+package status
 
 import (
 	"fmt"
@@ -7,33 +7,33 @@ import (
 )
 
 const (
-	clockHigh = common.BrightGreen
-	clockLow  = common.Red
+	irqHigh = common.Red
+	irqLow  = common.BrightGreen
 )
 
-type Clock struct {
+type Irq struct {
 	state uint8
 	log   *logging.Log
 }
 
-func New(log *logging.Log) *Clock {
-	return &Clock{
+func NewIrq(log *logging.Log) *Irq {
+	return &Irq{
 		log: log,
 	}
 }
 
-func (c *Clock) ClockHigh() {
+func (c *Irq) IrqHigh() {
 	c.state = 1
 }
 
-func (c *Clock) ClockLow() {
+func (c *Irq) IrqLow() {
 	c.state = 0
 }
 
-func (c *Clock) Block() string {
-	str := clockLow
+func (c *Irq) IrqBlock() string {
+	str := irqLow
 	if c.state == 1 {
-		str = clockHigh
+		str = irqHigh
 	}
-	return fmt.Sprintf("%sΦ%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
 }

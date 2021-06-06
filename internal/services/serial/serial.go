@@ -7,35 +7,50 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
-	"github.td.teradata.com/sandbox/logic-ctl/internal/services/timing"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
 	srl "go.bug.st/serial"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Serial struct {
+	sync 	   sync.Mutex
 	port       srl.Port
 	buffer     chan byte
 	address    chan []byte
+	opCode     chan byte
 	data       chan byte
+	status     chan byte
 	terminated bool
-	clock      *timing.Clock
+	clock      *status.Clock
+	irq        *status.Irq
+	nmi        *status.Nmi
+	reset      *status.Reset
 	log        *logging.Log
 	setDirty   func()
+	setStatus  func(uint8)
+	tick       func()
 	dirty      bool
 	initialize bool
 }
-func New(log *logging.Log, clock *timing.Clock, setDirty func()) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8), tick func()) *Serial {
 	s := &Serial{
-		clock: clock,
-		log: log,
-		setDirty: setDirty,
+		clock:     clock,
+		irq:       irq,
+		nmi:       nmi,
+		reset:     reset,
+		log:       log,
+		setDirty:  setDirty,
+		setStatus: setStatus,
+		tick:      tick,
 	}
 	return s
 }
 
-func (s *Serial) Connect() bool {
-
+func (s *Serial) Connect(reconnect bool) bool {
+	s.sync.Lock()
+	defer s.sync.Unlock()
 	if s.port != nil {
 		if ok := s.Disconnect(); !ok {
 			return false
@@ -51,7 +66,10 @@ func (s *Serial) Connect() bool {
 
 	var err error
 	if s.port, err = srl.Open(config.CLIConfig.Serial.PortName, mode); err != nil {
-		s.log.Error(fmt.Sprintf("Failed to open USB port %s: %v", config.CLIConfig.Serial.PortName, err))
+		s.port = nil
+		if !reconnect {
+			s.log.Errorf("Failed to open USB port %s: %v", config.CLIConfig.Serial.PortName, err)
+		}
 		return false
 	}
 
@@ -62,65 +80,37 @@ func (s *Serial) Connect() bool {
 	s.buffer  = make(chan byte, 20)
 	s.address = make(chan []byte)
 	s.data    = make(chan byte)
+	s.status  = make(chan byte)
+	s.opCode  = make(chan byte)
 	go s.reader()
 	go s.driver()
 
-	s.log.Info(fmt.Sprintf("Openned port %s", config.CLIConfig.Serial.PortName))
+	s.log.Infof("Openned port %s", config.CLIConfig.Serial.PortName)
 	return true
 }
 func (s *Serial) Disconnect() bool {
+	s.sync.Lock()
+	defer s.sync.Unlock()
+
 	if s.port != nil {
 		s.terminated = true
 		if err := s.port.Close(); err != nil {
-			s.log.Error(fmt.Sprintf("Failed to close USB port %s: %v", config.CLIConfig.Serial.PortName, err))
+			s.log.Errorf("Failed to close USB port %s: %v", config.CLIConfig.Serial.PortName, err)
 			return false
 		}
+		s.port = nil
 	}
 	s.log.Info("Port closed")
 	return true
 }
-
-func (s *Serial) ReadAddress() (uint16, bool) {
-	if s.port == nil {
-		if ok := s.Connect(); !ok {
-			return 0, false
-		}
+func (s *Serial) Reconnect() {
+	s.Connect(true)
+	if s.IsConnected() {
+		s.tick()
 	}
-
-	// Send command
-	if n, err := s.port.Write([]byte{0x61,0x0A}); err != nil {
-		s.log.Error(fmt.Sprintf("Failed to send request for address: %v", err))
-		return 0, false
-	} else if n != 2 {
-		s.log.Error(fmt.Sprintf("Unexpected number of bytes sent.  Expected 2, sent: %d", n))
-		return 0, false
-	}
-
-	// Receive address
-	a := binary.LittleEndian.Uint16(<-s.address)
-	s.log.Info(fmt.Sprintf("Address received: %d", a))
-	return a, true
 }
-func (s *Serial) ReadData() (uint8, bool) {
-	if s.port == nil {
-		if ok := s.Connect(); !ok {
-			return 0, false
-		}
-	}
-
-	// Send command
-	if n, err := s.port.Write([]byte("r\n")); err != nil {
-		s.log.Error(fmt.Sprintf("Failed to send request for data: %v", err))
-		return 0, false
-	} else if n != 2 {
-		s.log.Error(fmt.Sprintf("Unexpected number of bytes sent.  Expected 2, sent: %d", n))
-		return 0, false
-	}
-
-	// Receive address
-	b := <-s.data
-	s.log.Info(fmt.Sprintf("Data received: %d", b))
-	return b, true
+func (s *Serial) IsConnected() bool {
+	return s.port != nil
 }
 
 func toStopBits(value int) srl.StopBits {
@@ -146,37 +136,233 @@ func toParity(value int) srl.Parity {
 	}
 }
 
+func (s *Serial) ReadAddress() (uint16, bool) {
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return 0, false
+		}
+	}
+
+	// Send command
+	if n, err := s.port.Write([]byte("a\n")); err != nil {
+		s.log.Errorf("Failed to send request for address: %v", err)
+		return 0, false
+	} else if n != 2 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
+		return 0, false
+	}
+
+	// Receive address
+	a := binary.LittleEndian.Uint16(<-s.address)
+	return a, true
+}
+func (s *Serial) ReadOpCode() (uint8, bool) {
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return 0, false
+		}
+	}
+
+	// Send command
+	if n, err := s.port.Write([]byte("o\n")); err != nil {
+		s.log.Errorf("Failed to send request for OpCode: %v", err)
+		return 0, false
+	} else if n != 2 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
+		return 0, false
+	}
+
+	// Receive opCode
+	select {
+	case b := <-s.opCode:
+		return b, true
+	case <- time.After(10 * time.Second):
+		s.log.Warnf("OpCode not received")
+		return 0, false
+	}
+}
+func (s *Serial) ReadData() (uint8, bool) {
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return 0, false
+		}
+	}
+
+	// Send command
+	if n, err := s.port.Write([]byte("d\n")); err != nil {
+		s.log.Errorf("Failed to send request for data: %v", err)
+		return 0, false
+	} else if n != 2 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
+		return 0, false
+	}
+
+	// Receive data
+	select {
+	case b := <-s.data:
+		return b, true
+	case <- time.After(10 * time.Second):
+		s.log.Warnf("Data not received")
+		return 0, false
+	}
+}
+func (s *Serial) ReadStatus() (uint8, bool) {
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return 0, false
+		}
+	}
+
+	// Send command
+	if n, err := s.port.Write([]byte("s\n")); err != nil {
+		s.log.Errorf("Failed to send request for status: %v", err)
+		return 0, false
+	} else if n != 2 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
+		return 0, false
+	}
+
+	// Receive status
+	select {
+		case b := <-s.status:
+			return b, true
+		case <- time.After(10 * time.Second):
+			s.log.Warnf("Status not received")
+			return 0, false
+	}
+}
+func (s *Serial) SetData(data uint8) bool {
+	s.sync.Lock()
+	defer s.sync.Unlock()
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return false
+		}
+	}
+
+	// Send command
+	if n, err := s.port.Write([]byte{0x64,data,0x0A}); err != nil {
+		s.log.Errorf("Failed to send request to set data: %v", err)
+		return false
+	} else if n != 3 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 3, sent: %d", n)
+		return false
+	}
+
+	// Verify send
+	if n, err := s.port.Write([]byte("d\n")); err != nil {
+		s.log.Errorf("Failed to verify set data: %v", err)
+		return false
+	} else if n != 2 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
+		return false
+	}
+
+	// Receive data
+	b := <-s.data
+	if data != b {
+		s.log.Errorf("Verification failed.  Sent: %s, rerceived: %s", display.HexData(data), display.HexData(b))
+		return false
+	}
+	return true
+}
+func (s *Serial) SetLines(data [3]uint16) bool {
+	s.sync.Lock()
+	defer s.sync.Unlock()
+	if s.port == nil {
+		if ok := s.Connect(true); !ok {
+			return false
+		}
+	}
+
+	// Send command
+	bs := []byte{'L', uint8(data[0] >> 8), uint8(data[0]), uint8(data[1] >> 8), uint8(data[1]), uint8(data[2] >> 8), uint8(data[2]), 0x0A}
+	s.log.Debugf("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
+
+	if n, err := s.port.Write(bs); err != nil {
+		s.log.Errorf("Failed to send request to set lines: %v", err)
+		return false
+	} else if n != 8 {
+		s.log.Errorf("Unexpected number of bytes sent.  Expected 8, sent: %d", n)
+		return false
+	}
+	return true
+}
+
 func (s *Serial) reader() {
 	bs := make([]byte,1)
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Errorf("Recovered Read panic: %v", r)
+		}
+	}()
 	for !s.terminated {
 		if n, err := s.port.Read(bs); err != nil {
-			fmt.Println(err)
+			s.log.Errorf("Read failed: %v", err)
 			s.terminated = true
 		} else if n == 1 {
 			s.buffer <- bs[0]
+		} else {
+			s.log.Warnf("Unexpected number of bytes received: Wanted 1, Received %d", n)
 		}
 	}
 	close(s.buffer)
 }
 func (s *Serial) driver() {
-
-	for b := range s.buffer {
+	for  {
+		b:= <- s.buffer
+		s.log.Debugf("Inbound data: %s", string(b))
 		switch b {
 		case 'a':
 			s.address <- []byte {<-s.buffer,<-s.buffer}
 		case 'd':
 			s.data <- <-s.buffer
+		case 'o':
+			s.opCode <- <-s.buffer
+		case 's':
+			s.status <- <-s.buffer
 		case 'c':
 			s.clock.ClockLow()
 			s.setDirty()
 		case 'C':
 			s.clock.ClockHigh()
 			s.setDirty()
+		case 'k':
+			s.setStatus(<-s.buffer)
+			s.clock.ClockLow()
+			s.setDirty()
+		case 'K':
+			s.setStatus(<-s.buffer)
+			s.clock.ClockHigh()
+			s.setDirty()
+		case 'i':
+			s.irq.IrqLow()
+			s.setDirty()
+		case 'I':
+			s.irq.IrqHigh()
+			s.setDirty()
+		case 'n':
+			s.nmi.NmiLow()
+			s.setDirty()
+		case 'N':
+			s.nmi.NmiHigh()
+			s.setDirty()
+		case 'r':
+			s.reset.ResetLow()
+			s.setDirty()
+		case 'R':
+			s.reset.ResetHigh()
+			s.setDirty()
 		default:
-			s.log.Error(fmt.Sprintf("Unknown byte: %v", display.HexData(b)))
+			s.log.Debugf("Unknown byte: %v", display.HexData(b))
+			if _, e := s.port.GetModemStatusBits(); e != nil {
+				s.Disconnect()
+				s.terminated = true
+				return
+			}
 		}
 	}
-	fmt.Println("Stopped receiving")
+	s.log.Warn("Stopped receiving")
 }
 
 func (s *Serial) Draw(t *display.Terminal) {
@@ -188,22 +374,22 @@ func (s *Serial) Draw(t *display.Terminal) {
 	}
 	ports, err := srl.GetPortsList()
 	if err != nil {
-		s.log.Error(fmt.Sprintf("%v", err))
+		s.log.Errorf("%v", err)
 		return
 	}
 	if len(ports) == 0 {
-		s.log.Error(fmt.Sprintf("%v", err))
+		s.log.Errorf("%v", err)
 		return
 	}
-	t.PrintAt(fmt.Sprintf("%sSerial Ports%s", common.Yellow, common.Reset), 1,1)
+	t.PrintAtf(1,1, "%sSerial Ports%s", common.Yellow, common.Reset)
 	line := 2
 	for _, port := range ports {
 		if strings.HasPrefix(port, "/dev/cu") {
-			t.PrintAt(fmt.Sprintf("%s%v%s", common.Blue, port, common.Reset), 4, line)
+			t.PrintAtf(4, line, "%s%v%s", common.Blue, port, common.Reset)
 			line ++
 		}
 	}
-	t.PrintAt(fmt.Sprintf("%sPress any key%s", common.Yellow, common.Reset), 1, t.Rows())
+	t.PrintAtf(1, t.Rows(), "%sPress any key%s", common.Yellow, common.Reset)
 	s.dirty = false
 }
 func (s *Serial) SetDirty(initialize bool) {

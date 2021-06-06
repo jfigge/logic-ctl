@@ -7,33 +7,33 @@ import (
 )
 
 const (
-	nmiHigh = common.BrightGreen
-	nmiLow  = common.Red
+	resetHigh = common.Red
+	resetLow  = common.BrightGreen
 )
 
-type Nmi struct {
+type Reset struct {
 	state uint8
 	log   *logging.Log
 }
 
-func NewNmi(log *logging.Log) *Nmi {
-	return &Nmi{
+func NewReset(log *logging.Log) *Reset {
+	return &Reset{
 		log: log,
 	}
 }
 
-func (c *Nmi) NmiHigh() {
+func (c *Reset) ResetHigh() {
 	c.state = 1
 }
 
-func (c *Nmi) NmiLow() {
+func (c *Reset) ResetLow() {
 	c.state = 0
 }
 
-func (c *Nmi) NmiBlock() string {
-	str := nmiLow
+func (c *Reset) ResetBlock() string {
+	str := resetLow
 	if c.state == 1 {
-		str = nmiHigh
+		str = resetHigh
 	}
-	return fmt.Sprintf("%sΦ%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
 }

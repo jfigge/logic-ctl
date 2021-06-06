@@ -7,33 +7,33 @@ import (
 )
 
 const (
-	irqHigh = common.BrightGreen
-	irqLow  = common.Red
+	nmiHigh = common.Red
+	nmiLow  = common.BrightGreen
 )
 
-type Irq struct {
+type Nmi struct {
 	state uint8
 	log   *logging.Log
 }
 
-func NewIrq(log *logging.Log) *Irq {
-	return &Irq{
+func NewNmi(log *logging.Log) *Nmi {
+	return &Nmi{
 		log: log,
 	}
 }
 
-func (c *Irq) IrqHigh() {
+func (c *Nmi) NmiHigh() {
 	c.state = 1
 }
 
-func (c *Irq) IrqLow() {
+func (c *Nmi) NmiLow() {
 	c.state = 0
 }
 
-func (c *Irq) IrqBlock() string {
-	str := irqLow
+func (c *Nmi) NmiBlock() string {
+	str := nmiLow
 	if c.state == 1 {
-		str = irqHigh
+		str = nmiHigh
 	}
-	return fmt.Sprintf("%sΦ%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
 }

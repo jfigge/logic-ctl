@@ -1,4 +1,4 @@
-package timing
+package status
 
 import (
 	"fmt"
@@ -7,27 +7,33 @@ import (
 )
 
 const (
-	clockHigh = common.BrightGreen
-	clockLow  = common.Red
+	clockHigh = common.BrightCyan
+	clockLow  = common.Cyan
 )
 
 type Clock struct {
 	state uint8
+	tick  func()
 	log   *logging.Log
 }
-
-func New(log *logging.Log) *Clock {
+func NewClock(log *logging.Log, tick func()) *Clock {
 	return &Clock{
-		log: log,
+		log:  log,
+		tick: tick,
 	}
 }
 
 func (c *Clock) ClockHigh() {
 	c.state = 1
+	c.tick()
 }
-
 func (c *Clock) ClockLow() {
 	c.state = 0
+	c.tick()
+}
+
+func (c *Clock) CurrentState() uint8 {
+	return c.state
 }
 
 func (c *Clock) Block() string {
@@ -35,5 +41,5 @@ func (c *Clock) Block() string {
 	if c.state == 1 {
 		str = clockHigh
 	}
-	return fmt.Sprintf("%sΦ%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%sΦ%d%s", str, c.state + 1, common.Reset)
 }

@@ -1,220 +1,325 @@
-package instructions
+package instructionSet
 
-import "fmt"
-
-// Data Bus driver
-const (
-	DB_DEFAULT     = 0
-	DB_Accumulator = 1
-	DB_Flags       = 2
-	DB_SB          = 3
-	DB_PC_High     = 4
-	DB_PC_Low      = 5
-	DB_Input       = 6
-)
-
-// Address bus high driver
-const (
-	ADH_DEFAULT    = 1
-	ADH_Input      = 0
-	ADH_Constants  = 1
-	ADH_PC_High    = 2
-	ADH_SB         = 3
-)
-
-// Address bus low driver
-const (
-	ADL_DEFAULT    = 2
-	ADL_Input      = 0
-	ADL_PC_Low     = 1
-	ADL_Constants  = 2
-	ADL_SP         = 3
-	ADL_ADD        = 4
-)
-
-// Special Bus driver
-const (
-	SB_DEFAULT     = 7
-	SB_ACC         = 0
-	SB_Y_REG       = 1
-	SB_X_REG       = 2
-	SB_ADD         = 3
-	SB_SP          = 4
-	SB_DB          = 5
-	SB_ADH         = 6
+import (
+	"fmt"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 )
 
 const (
-	// EPROM 3b
-	Clk2 = iota // Clock Phi-2
-	Clk1        // Clock Phi-1
-	FlgI        // Set bit for flag Interrupt disabling
-	FlgZ        // Load flag N from bus (bit 0 / XOR FlagA)
-	FlgC        // Load flag V from bus (bit 1)
-	FlgV        // Load flag C from bus (bit 7)
-	FlgN        // Load flag Z/I from bus (bit 6)
-	FlgA        // Set source of flags
 
-	// EPROM 3a
-	SBD2        // Special Bus driver 4-bit
-	SBD1        // Special Bus driver 2-bit
-	SBD0        // Special Bus driver 1-bit
-	SblX        // Special Bus load X
-	SblY        // Special Bus load Y
-	SblA        // Special Bus load Accumulator
-	ShSB        // Shift logic selector B (bit 2)
-	ShSA        // Shift logic selector A (bit 1)
+) // Flags  (
+const (
+	PHI1 = 0
+	PHI2 = 1
+) // Clock stages
+const (
+	E1 = 0
+	E2 = 1
+	E3 = 2
+) // EPROMS
+const (
+	E3_CLK2 = 1 << iota // Clock Phi-2
+	E3_CLK1             // Clock Phi-1
+	E3_FLGI             // Set bit for flag Interrupt disabling
+	E3_FLGZ             // Flag Z/I selector bit 1 (0=Value, 1=Bus)
+	E3_FLGC             // Flag C selector bit 0 (0=Value, 1=Bus)
+	E3_FLGV             // Flag V selector bit 6 (0=Value, 1=Bus)
+	E3_FLGN             // Flag N selector bit 7 (0=Value, 1=Bus)
+	E3_FLGS             // Flags selector (0=Register/I, 1=Value/Bus)
+	E3_SBD2             // Special Bus driver 4-bit
+	E3_SBD1             // Special Bus driver 2-bit
+	E3_SBD0             // Special Bus driver 1-bit
+	E3_SBLX             // Special Bus load X
+	E3_SBLY             // Special Bus load Y
+	E3_SBLA             // Special Bus load Accumulator
+	E3_AULR             // Shift direction selector (0=Left, 1=Right)
+	E3_AUS2             // ALU Shift #2 selector (0=first, 1=second)
+) // EPROM 3
+const (
+	E2_AUS1 = 1 << iota // ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)
+	E2_AUO2             // ALU Op Selector #2 (0=first, 1=second)
+	E2_AUO1             // ALU Op Selector #1 (0=Sum/Or, 1=And/Xor)
+	E2_ALSA             // ALU Load A Selector (0=zeros, 1=Special Bus)
+	E2_ALSB             // ALU Load B Selector (0=DB, 1=ADL)
+	E2_AUIB             // ALU Load Invert data bus
+	E2_PAUS             // Set clock manual step mode
+	E2_HALT             // Stop clock until reset
 
-	// EPROM 2b
-	SHLR        // Shift logic Left / Right selector
-	ASOX        // ALU OR / XOR selector
-	ASSA        // ALU SUM / AND selector
-	ALBS    	// ALU Load B Selector (0 = 0, 1 = Special Bus)
-	ALAS		// ALU Load A Selector (0 = DB, 1 = ADL)
-	ALIB		// ALU Load Invert data bus
-	PAUS        // Set clock manual step mode
-	HALT        // Stop clock until reset
+	E2_UNU2             // Unused #2
+	E2_UNU1             // Unused #1
+	E2_ALC0             // Address Low constant (0)
+	E2_ALC1             // Address Low constant (1)
+	E2_ALC2             // Address Low constant (2)
+	E2_SPLD             // Stack pointer load
+	E2_AHLD		        // Load address bus high from ADH
+	E2_ALLD		        // Load address bus low from ADL
+) // EPROM 2
+const (
+	E1_PCLH = uint16(1) << iota // Load program counter from ADH
+	E1_PCLL                     // Load program counter from ADL
+	E1_PCIN                     // Increment program counter
+	E1_DBRW                     // Data bus Read/Write (0=Read, 1=Write)
+	E1_IRLD                     // Instruction counter load
+	E1_ALD2                     // Address low driver 4-bit
+	E1_ALD1                     // Address low driver 2-bit
+	E1_ALD0                     // Address low driver 1-bit
 
-	// EPROM 2a
-	UNU1		// Unused
-	NMIR        // Reset NMI latch
-	ALC0        // Address Low constant (0)
-	ALC1        // Address Low constant (1)
-	ALC2        // Address Low constant (2)
-	SPLD        // Stack pointer load
-	ADLL		// Load address bus low from ADL
-	ADLH		// Load address bus high from ADH
+	E1_DBD2                     // Data bus driver 4-bit
+	E1_DBD1                     // Data bus driver 2-bit
+	E1_DBD0                     // Data bus driver 1-bit
+	E1_AHC0                     // Address bus high Constant (0)
+	E1_AHC1                     // Address bus high Constant (1-7)
+	E1_AHD1                     // Address high driver 2-bit
+	E1_AHD0                     // Address high driver 1-bit
+	E1_TRST                     // Timer reset
+) // EPROM 1
 
-	// EPROM 1b
-	PCLH        // Load program counter from ADH
-	PCLL        // Load program counter from ADL
-	PCIN        // Increment program counter
-	IRLD        // Instruction counter load
-	DOUT        // Enable data out
-	ALD0		// Address Bus driver 1-bit
-	ALD1		// Address Bus driver 2-bit
-	ALD2		// Address Bus driver 4-bit
+const (
+	DB_Accumulator = /* 1 */ E1_DBD0
+	DB_Flags       = /* 2 */ E1_DBD1
+	DB_SB          = /* 3 */ E1_DBD0 | E1_DBD1
+	DB_PC_High     = /* 4 */ E1_DBD2
+	DB_PC_Low      = /* 5 */ E1_DBD0 | E1_DBD2
+	DB_Input       = /* 6 */ E1_DBD1 | E1_DBD2
+) // Data Bus driver
+const (
+	ADH_Input      = /* 0 */ 0
+	ADH_Constants  = /* 1 */ E1_AHD0
+	ADH_PC_High    = /* 2 */ E1_AHD1
+	ADH_SB         = /* 3 */ E1_AHD0 | E1_AHD1
+) // Address bus high driver
+const (
+	ADL_Input      = /* 0 */ 0
+	ADL_PC_Low     = /* 1 */ E1_ALD0
+	ADL_Constants  = /* 2 */ E1_ALD1
+	ADL_SP         = /* 3 */ E1_ALD0 | E1_ALD1
+	ADL_ADD        = /* 4 */ E1_ALD2
+) // Address bus low driver
+const (
+	SB_ACC         = /* 0 */ 0
+	SB_Y_REG       = /* 1 */ E3_SBD0
+	SB_X_REG       = /* 2 */ E3_SBD1
+	SB_ADD         = /* 3 */ E3_SBD0 | E3_SBD1
+	SB_SP          = /* 4 */ E3_SBD2
+	SB_DB          = /* 5 */ E3_SBD0 | E3_SBD2
+	SB_ADH         = /* 6 */ E3_SBD1 | E3_SBD2
+) // Special Bus driver
 
-	// EPROM 1a
-	DBD0        // Data Bus driver 1-bit
-	DBD1        // Data Bus driver 2-bit
-	DBD2        // Data Bus driver 4-bit
-	AHC0		// Address Bus High Constant (0)
-	AHC1		// Address Bus High Constant (1-7)
-	AHD0        // Address High driver 1-bit
-	AHD1        // Address High driver 2-bit
-	TRST        // TRST Timer reset
+var (
+	lineNames = []string{
+		/* EPROM 1a */ "TRST", "AHD0", "AHD1", "AHC1", "AHC0", "DBD0", "DBD1", "DBD2",
+		/* EPROM 1b */ "ALD0", "ALD1", "ALD2", "IRLD", "DBRW", "PCIN", "PCLL", "PCLH",
+		/* EPROM 2a */ "ALLD", "AHLD", "SPLD", "ALC2", "ALC1", "ALC0", "UNU1", "UNU2",
+		/* EPROM 2b */ "HALT", "PAUS", "AUIB", "AUSB", "AUSA", "AUO1", "AUO2", "AUS1",
+		/* EPROM 3a */ "AUS2", "AULR", "SBLA", "SBLY", "SBLX", "SBD0", "SBD1", "SBD2",
+		/* EPROM 3b */ "FLGS", "FLGN", "FLGV", "FLGC", "FLGZ", "FLGI", "CLK1", "CLK2",
+	}
+	lineDescriptions = []string{
+		// EPROM 1a
+		"Timer reset",
+		"Address High driver 1-bit",
+		"Address High driver 2-bit",
+		"Address Bus High Constant (1-7)",
+		"Address Bus High Constant (0)",
+		"Data Bus driver 1-bit",
+		"Data Bus driver 2-bit",
+		"Data Bus driver 4-bit",
+		// EPROM 1b
+		"Address Low driver 1-bit",
+		"Address Low driver 2-bit",
+		"Address Low driver 4-bit",
+		"Instruction counter load",
+		"Data bus Read/Write (0=Read, 1=Write)",
+		"Increment program counter",
+		"Load program counter from ADL",
+		"Load program counter from ADH",
+		// EPROM 2a
+		"Load address bus low from ADL",
+		"Load address bus high from ADH",
+		"Stack pointer load",
+		"Address Low constant (2)",
+		"Address Low constant (1)",
+		"Address Low constant (0)",
+		"Unused #1",
+		"Unused #2",
+		// EPROM 2b
+		"Stop clock until reset",
+		"Set clock manual step mode",
+		"ALU Load Invert data bus",
+		"ALU Load B Selector (0=DB, 1=ADL)",
+		"ALU Load A Selector (0=zeros, 1=Special Bus)",
+		"ALU Op Selector #1 (0=Sum/Or, 1=And/Xor)",
+		"ALU Op Selector #2 (0=first, 1=second)",
+		"ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)",
+		// EPROM 3a
+		"ALU Shift #2 selector (0=first, 1=second)",
+		"Shift direction selector (0=Left, 1=Right)",
+		"Special Bus load Accumulator",
+		"Special Bus load Y",
+		"Special Bus load X",
+		"Special Bus driver 1-bit",
+		"Special Bus driver 2-bit",
+		"Special Bus driver 4-bit",
+		// EPROM 3b
+		"Flags selector (0=Register/I, 1=Value/Bus)",
+		"Flag N selector bit 7 (0=Value, 1=Bus)",
+		"Flag V selector bit 6 (0=Value, 1=Bus)",
+		"Flag C selector bit 0 (0=Value, 1=Bus)",
+		"Flag Z/I selector bit 1 (0=Value, 1=Bus)",
+		"Set bit for flag Interrupt disabling",
+		"Clock Phi-1",
+		"Clock Phi-2",
+	}
+	defaults = [3]uint16 {
+		E1_TRST | E1_AHD0 | E1_AHC0 | E1_AHC1 | E1_PCLH | E1_PCLL | E1_IRLD | E1_DBRW | E1_PCIN| E1_ALD0 | E1_ALD1 | E1_ALD2,
+		E2_HALT | E2_UNU1 | E2_ALC0 | E2_ALC1 | E2_ALC2 | E2_SPLD | E2_ALLD | E2_AHLD,
+		E3_SBD2 | E3_SBD1 | E3_SBD0 | E3_SBLX | E3_SBLY | E3_SBLA,
+	}
 )
-
-type Codes struct {
-	line             uint
-	showBlock        bool
-	lines[]          string
-	lineNames        []string
-	lineDescriptions []string
-	setDirty         func()
-
+type coord struct {
+	x,y int
 }
-func NewCodes(setDirty func()) *Codes {
-	l := Codes{
-		lineNames: []string{
-			/* EPROM 1a */ "TRST", "AHD1", "AHD0", "AHC1", "AHC0", "DBD2", "DBD1", "DBD0",
-			/* EPROM 1b */ "ALD2", "ALD1", "ALD0", "DOUT", "IRLD", "PCIN", "PCLL", "PCLH",
-			/* EPROM 2a */ "ADLH", "ADLL", "SPLD", "ALC2", "ALC1", "ALC0", "NMIR", "UNU1",
-			/* EPROM 2b */ "HALT", "PAUS", "ALIB", "ALAS", "ALBS", "ASSA", "ASOX", "SHLR",
-			/* EPROM 3a */ "ShSA", "ShSB", "SblA", "SblY", "SblX", "SBD0", "SBD1", "SBD2",
-			/* EPROM 3b */ "FlgA", "FlgN", "FlgV", "FlgC", "FlgZ", "FlgI", "Clk1", "Clk2",
-		},
-		lineDescriptions: []string{
-			// EPROM 1a
-			"TRST Timer reset",
-			"Address High driver 2-bit",
-			"Address High driver 1-bit",
-			"Address Bus High Constant (1-7)",
-			"Address Bus High Constant (0)",
-			"Data Bus driver 4-bit",
-			"Data Bus driver 2-bit",
-			"Data Bus driver 1-bit",
-			// EPROM 1b
-			"Address Bus driver 4-bit",
-			"Address Bus driver 2-bit",
-			"Address Bus driver 1-bit",
-			"Enable data out",
-			"Instruction counter load",
-			"Increment program counter",
-			"Load program counter from ADL",
-			"Load program counter from ADH",
-			// EPROM 2a
-			"Load address bus high from ADH",
-			"Load address bus low from ADL",
-			"Stack pointer load",
-			"Address Low constant (2)",
-			"Address Low constant (1)",
-			"Address Low constant (0)",
-			"Reset NMI latch",
-			"Unused",
-			// EPROM 2b
-			"Stop clock until reset",
-			"Set clock manual step mode",
-			"ALU Load Invert data bus",
-			"ALU Load A Selector (0 = DB, 1 = ADL)",
-			"ALU Load B Selector (0 = 0, 1 = Special Bus)",
-			"ALU SUM / AND selector",
-			"ALU OR / XOR selector",
-			"Shift logic Left / Right selector",
-			// EPROM 3a
-			"Shift logic selector A (bit 1)",
-			"Shift logic selector B (bit 2)",
-			"Special Bus load Accumulator",
-			"Special Bus load Y",
-			"Special Bus load X",
-			"Special Bus driver 1-bit",
-			"Special Bus driver 2-bit",
-			"Special Bus driver 4-bit",
-			// EPROM 3b
-			"Set source of flags",
-			"Load flag Z/I from bus (bit 6)",
-			"Load flag C from bus (bit 7)",
-			"Load flag V from bus (bit 1)",
-			"Load flag N from bus (bit 0 / XOR FlagA)",
-			"Set bit for flag Interrupt disabling",
-			"Clock Phi-1",
-			"Clock Phi-2",
-		},
+type ControlLines struct {
+	showBlock bool
+	lines     []          string
+	setDirty  func(bool)
+	xOffset   []int
+	yOffset   int
+	cursor    coord
+	terminal  *display.Terminal
+	log       *logging.Log
+	setLine   func(step uint8, clock uint8, eprom uint8, bit uint16, value uint8)
+}
+func NewControlLines(log *logging.Log, terminal *display.Terminal, setDirty func(bool),
+	                 setLine func(step uint8, clock uint8, eprom uint8, bit uint16, value uint8)) *ControlLines {
+	l := ControlLines{
+		log:      log,
+		terminal: terminal,
+		cursor:   coord{1,1},
+		xOffset:  []int{8,9,11,12,14,15},
+		yOffset:  20,
 		setDirty: setDirty,
+		setLine:  setLine,
 	}
 
 	for i := 0; i < 4; i++ {
 		line := ""
 		for j := 1; j <= 48; j++ {
-			line += fmt.Sprintf(" %c", l.lineNames[j-1][i])
-			if j % 8 == 0 {
-				line += " "
+			colour := common.BGBrightCyan
+			if j % 2 == 0 {
+				colour = common.BGBrightGreen
+			}
+			line += fmt.Sprintf("%s%c", colour, lineNames[j-1][i])
+			if j % 16 == 0 {
+				line += common.Reset + "  "
+			} else if j % 8 == 0 {
+				line += common.Reset + " "
 			}
 		}
+		line += common.Reset
 		l.lines = append(l.lines, line)
 	}
 
 	return &l
 }
 
-func (l *Codes) IsShowBlock() bool{
+func (l *ControlLines) Up(n int) {
+	if l.cursor.y - n >= 1 {
+		l.cursor.y -= n
+		l.setDirty(false)
+		l.PositionCursor()
+	} else {
+		l.terminal.Bell()
+	}
+}
+func (l *ControlLines) Down(n int) {
+	if l.cursor.y + n <= 16 {
+		l.cursor.y += n
+		l.setDirty(false)
+		l.PositionCursor()
+	} else {
+		l.terminal.Bell()
+	}
+}
+func (l *ControlLines) Left(n int) {
+	if l.cursor.x - n >= 1 {
+		l.cursor.x -= n
+		l.setDirty(false)
+		l.PositionCursor()
+	} else {
+		l.terminal.Bell()
+	}
+}
+func (l *ControlLines) Right(n int) {
+	if l.cursor.x + n <= 48 {
+		l.cursor.x += n
+		l.setDirty(false)
+		l.PositionCursor()
+	} else {
+		l.terminal.Bell()
+	}
+}
+func (l *ControlLines) PositionCursor() {
+	l.terminal.At(l.cursor.x + l.xOffset[(l.cursor.x-1)/8], l.cursor.y + l.yOffset)
+}
+func (l *ControlLines) CursorPosition() string {
+	return fmt.Sprintf("  %d,%d", l.cursor.x, l.cursor.y)
+}
+
+func (l *ControlLines) KeyIntercept(a int, k int) bool {
+	if k != 0 {
+		switch k {
+		case display.CursorUp:
+			l.Up(1)
+		case display.CursorDown:
+			l.Down(1)
+		case display.CursorLeft:
+			l.Left(1)
+		case display.CursorRight:
+			l.Right(1)
+		default:
+			// keycode not processed
+			return false
+		}
+	} else {
+		value := uint8(2)
+		switch a {
+		case '1', '0':
+			if a == '1' {
+				value = 1
+			} else {
+				value = 0
+			}
+			fallthrough
+		case ' ':
+			step  := uint8((l.cursor.y - 1) / 2)
+			clock := uint8((l.cursor.y - 1) % 2)
+			eprom := uint8((l.cursor.x - 1) / 16)
+			bit   := uint16(15 - (l.cursor.x - 1) % 16)
+			l.setLine(step, clock, eprom, bit, value)
+		default:
+			// key not processed
+			return false
+		}
+	}
+	// key processed
+	return true
+}
+
+func (l *ControlLines) IsShowNames() bool{
 	return l.showBlock
 }
-func (l *Codes) ShowBlock(enable bool) {
+func (l *ControlLines) ShowNames(enable bool) {
 	if l.showBlock != enable {
 		l.showBlock = enable
-		l.setDirty()
+		l.setDirty(true)
 	}
 }
-func (l *Codes) SetLine(line uint) {
-	if line >= 0 && line < 48 {
-		l.line = line
-	}
-}
-func (l *Codes) Block() []string {
+func (l *ControlLines) LineNamesBlock() []string {
 	if l.showBlock {
 		return l.lines
 	}
-	return []string{ fmt.Sprintf(" %-40s", l.lineDescriptions[l.line ])}
+	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.x - 1], display.ClearEnd)}
 }

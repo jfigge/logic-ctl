@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 )
@@ -23,14 +22,14 @@ func (h *History) Draw(t *display.Terminal) {
 		h.initialize = false
 	}
 
-	t.PrintAt(fmt.Sprintf("%sNotification log%s", common.Yellow, common.Reset), 1,1)
+	t.PrintAtf(1,1, "%sNotification log%s", common.Yellow, common.Reset)
 	max := len(h.messages)
 	for row := 2; row < t.Rows() - 1; row++ {
 		if max - row + 2 > 0 {
-			t.PrintAt(h.messages[max - row + 1], 1, row)
+			t.PrintAt(1, row, h.messages[max - row + 1])
 		}
 	}
-	t.PrintAt(fmt.Sprintf("%sPress any key%s", common.Yellow, common.Reset), 1, t.Rows())
+	t.PrintAtf(1, t.Rows(), "%s'Press 'c' to clear, any other key to exit%s", common.Yellow, common.Reset)
 	h.dirty = false
 }
 func (h *History) SetDirty(initialize bool) {
@@ -40,5 +39,17 @@ func (h *History) SetDirty(initialize bool) {
 	}
 }
 func (h *History) Process(a int, k int) bool {
+	if k != 0 {
+		switch k {
+
+		}
+	} else {
+		switch a {
+		case 'c':
+			h.messages = []string{}
+			h.SetDirty(true)
+			return false
+		}
+	}
 	return true
 }

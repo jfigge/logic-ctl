@@ -68,41 +68,8 @@ func New() (*Terminal, error) {
  	} else {
  		display.state = s
 	}
-	display.HideCursor()
+	//display.HideCursor()
 	return &display, nil
-}
-
-func (t *Terminal) Up(n int) {
-	if t.row - n >= 1 {
-		fmt.Printf(Up, n)
-		t.row -= n
-	} else {
-		t.Bell()
-	}
-}
-func (t *Terminal) Down(n int) {
-	if t.row + n <= t.rows {
-		fmt.Printf(Down, n)
-		t.row += n
-	} else {
-		t.Bell()
-	}
-}
-func (t *Terminal) Left(n int) {
-	if t.col - n >= 1 {
-		fmt.Printf(Left, n)
-		t.col -= n
-	} else {
-		t.Bell()
-	}
-}
-func (t *Terminal) Right(n int) {
-	if t.col + n <= t.cols {
-		fmt.Printf(Right, n)
-		t.col += n
-	} else {
-		t.Bell()
-	}
 }
 
 func (t *Terminal) At(col int, row int) bool {
@@ -125,12 +92,18 @@ func (t *Terminal) Home() {
 	t.row = 1
 }
 
-func (t *Terminal) PrintAt(text string, col int, row int) bool {
+func (t *Terminal) PrintAtf(col int, row int, text string, a...interface{}) bool {
+	return t.PrintAt(col, row, fmt.Sprintf(text, a...))
+}
+func (t *Terminal) PrintAt(col int, row int, text string) bool {
 	ok := t.At(col, row)
 	if ok {
 		t.Print(text)
 	}
 	return ok
+}
+func (t *Terminal) Printf(text string, a...interface{}) {
+	t.Print(fmt.Sprintf(text, a...))
 }
 func (t *Terminal) Print(text string) {
 	bs := []byte(StripFormatting(text))

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
-	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructions"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"io/ioutil"
 )
@@ -21,10 +21,10 @@ type Memory struct {
 	memory [65536]byte
 	lastAction  string
 	disassembly map[uint16] string
-	opCodes     *instructions.OperationCodes
+	opCodes     *instructionSet.OperationCodes
 	log         *logging.Log
 }
-func New(log *logging.Log, opCodes *instructions.OperationCodes) *Memory {
+func New(log *logging.Log, opCodes *instructionSet.OperationCodes) *Memory {
 	return &Memory{
 		lastAction: normal,
 		opCodes:    opCodes,
@@ -35,7 +35,7 @@ func New(log *logging.Log, opCodes *instructions.OperationCodes) *Memory {
 func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
 	memSize := len(m.memory)
 	if bs, err := ioutil.ReadFile(filename); err != nil {
-		m.log.Error(fmt.Sprintf("Failed to read ROM: %s", err))
+		m.log.Errorf("Failed to read ROM: %s", err)
 		return false
 	} else {
 		percent := -1
@@ -51,7 +51,7 @@ func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
 			}
 		}
 		m.disassembly = m.disassemble(0, uint16(len(bs)))
-		m.log.Info(fmt.Sprintf("%d byte(s) read.", len(bs)))
+		m.log.Infof("%d byte(s) read.", len(bs))
 		return true
 	}
 }
@@ -77,75 +77,79 @@ func (m *Memory) disassemble(nStart, nStop uint16) map[uint16] string {
 		sInst := fmt.Sprintf("$%s: ", display.HexAddress(lineAddr))
 
 		// Read instruction, and get its readable name
-		opcode := m.memory[addr]
-		addr++
+		opCode := m.opCodes.Lookup(m.memory[addr])
+		if opCode == nil {
+			sInst = "xxx"
+			addr++
+		} else {
+			sInst += opCode.Name + " "
+			addr++
 
-		sInst += m.opCodes.Lookup(opcode).Name + " "
-
-		// Get operands from desired locations, and form the
-		// instruction based upon its addressing mode. These
-		// routines mimic the actual fetch routine of the
-		// 6502 in order to get accurate data as part of the
-		// instruction
-		if m.opCodes.Lookup(opcode).AddrMode == instructions.IMP {
-			sInst += " {IMP}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.IMM {
-			value = m.memory[addr]
-			addr++
-			sInst += "#$" + display.HexData(value) + " {IMM}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ZPG {
-			lo = m.memory[addr]
-			addr++
-			hi = 0x00
-			sInst += "$" + display.HexData(lo) + " {ZPG}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ZPX {
-			lo = m.memory[addr]
-			addr++
-			hi = 0x00
-			sInst += "$" + display.HexData(lo) + ", X {ZPX}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ZPY {
-			lo = m.memory[addr]
-			addr++
-			hi = 0x00
-			sInst += "$" + display.HexData(lo) + ", Y {ZPY}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.IZX {
-			lo = m.memory[addr]
-			addr++
-			hi = 0x00
-			sInst += "($" + display.HexData(lo) + ", X) {IZX}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.IZY {
-			lo = m.memory[addr]
-			addr++
-			hi = 0x00
-			sInst += "($" + display.HexData(lo) + "), Y {IZY}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ABS {
-			lo = m.memory[addr]
-			addr++
-			hi = m.memory[addr]
-			addr++
-			sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + " {ABS}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ABX {
-			lo = m.memory[addr]
-			addr++
-			hi = m.memory[addr]
-			addr++
-			sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ", X {ABX}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.ABY {
-			lo = m.memory[addr]
-			addr++
-			hi = m.memory[addr]
-			addr++
-			sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ", Y {ABY}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.IND {
-			lo = m.memory[addr]
-			addr++
-			hi = m.memory[addr]
-			addr++
-			sInst += "($" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ") {IND}"
-		} else if m.opCodes.Lookup(opcode).AddrMode == instructions.REL {
-			value = m.memory[addr]
-			addr++
-			sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
+			// Get operands from desired locations, and form the
+			// instruction based upon its addressing mode. These
+			// routines mimic the actual fetch routine of the
+			// 6502 in order to get accurate data as part of the
+			// instruction
+			if opCode.AddrMode == instructionSet.IMP {
+				sInst += " {IMP}"
+			} else if opCode.AddrMode == instructionSet.IMM {
+				value = m.memory[addr]
+				addr++
+				sInst += "#$" + display.HexData(value) + " {IMM}"
+			} else if opCode.AddrMode == instructionSet.ZPG {
+				lo = m.memory[addr]
+				addr++
+				hi = 0x00
+				sInst += "$" + display.HexData(lo) + " {ZPG}"
+			} else if opCode.AddrMode == instructionSet.ZPX {
+				lo = m.memory[addr]
+				addr++
+				hi = 0x00
+				sInst += "$" + display.HexData(lo) + ", X {ZPX}"
+			} else if opCode.AddrMode == instructionSet.ZPY {
+				lo = m.memory[addr]
+				addr++
+				hi = 0x00
+				sInst += "$" + display.HexData(lo) + ", Y {ZPY}"
+			} else if opCode.AddrMode == instructionSet.IZX {
+				lo = m.memory[addr]
+				addr++
+				hi = 0x00
+				sInst += "($" + display.HexData(lo) + ", X) {IZX}"
+			} else if opCode.AddrMode == instructionSet.IZY {
+				lo = m.memory[addr]
+				addr++
+				hi = 0x00
+				sInst += "($" + display.HexData(lo) + "), Y {IZY}"
+			} else if opCode.AddrMode == instructionSet.ABS {
+				lo = m.memory[addr]
+				addr++
+				hi = m.memory[addr]
+				addr++
+				sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + " {ABS}"
+			} else if opCode.AddrMode == instructionSet.ABX {
+				lo = m.memory[addr]
+				addr++
+				hi = m.memory[addr]
+				addr++
+				sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ", X {ABX}"
+			} else if opCode.AddrMode == instructionSet.ABY {
+				lo = m.memory[addr]
+				addr++
+				hi = m.memory[addr]
+				addr++
+				sInst += "$" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ", Y {ABY}"
+			} else if opCode.AddrMode == instructionSet.IND {
+				lo = m.memory[addr]
+				addr++
+				hi = m.memory[addr]
+				addr++
+				sInst += "($" + display.HexAddress(uint16(hi) << 8 | uint16(lo)) + ") {IND}"
+			} else if opCode.AddrMode == instructionSet.REL {
+				value = m.memory[addr]
+				addr++
+				sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
+			}
 		}
 
 		// Add the formed string to a std::map, using the instruction's
@@ -160,13 +164,13 @@ func (m *Memory) disassemble(nStart, nStop uint16) map[uint16] string {
 
 func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 	m.lastAction = read
-	m.log.Info(fmt.Sprintf("Memory[%s] returned %s", display.HexAddress(address), display.HexData(m.memory[address])))
+	m.log.Infof("Memory[%s] returned %s", display.HexAddress(address), display.HexData(m.memory[address]))
 	return m.memory[address], true
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
 	m.memory[address] = data
 	m.lastAction = written
-	m.log.Info(fmt.Sprintf("Memory[%s] set to %s", display.HexAddress(address), display.HexData(m.memory[address])))
+	m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(m.memory[address]))
 	return true
 }
 
@@ -201,9 +205,9 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	m.lastAction = current
 	return lines
 }
-func (m *Memory) InstructionBlock(current uint16) (lines []string) {
+func (m *Memory) InstructionBlock(address uint16) (lines []string) {
 	highlight := uint16(lineCount / 2)
-	i := int(current) - int(highlight)
+	i := int(address) - int(highlight)
 	if i < 0 {
 		highlight = uint16(int(highlight) + i)
 		i = 9
