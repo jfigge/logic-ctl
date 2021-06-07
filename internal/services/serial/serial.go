@@ -267,7 +267,7 @@ func (s *Serial) SetData(data uint8) bool {
 	}
 	return true
 }
-func (s *Serial) SetLines(data [3]uint16) bool {
+func (s *Serial) SetLines(data uint64) bool {
 	s.sync.Lock()
 	defer s.sync.Unlock()
 	if s.port == nil {
@@ -277,7 +277,7 @@ func (s *Serial) SetLines(data [3]uint16) bool {
 	}
 
 	// Send command
-	bs := []byte{'L', uint8(data[0] >> 8), uint8(data[0]), uint8(data[1] >> 8), uint8(data[1]), uint8(data[2] >> 8), uint8(data[2]), 0x0A}
+	bs := []byte{'L', uint8(data >> 40), uint8(data >> 32), uint8(data >> 24), uint8(data >> 16), uint8(data >> 8), uint8(data), 0x0A}
 	s.log.Debugf("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
 
 	if n, err := s.port.Write(bs); err != nil {

@@ -126,9 +126,9 @@ const (
 var showMnemonic bool
 
 type OperationCodes struct {
-	opCodes []OpCode
-	lookup  map[uint8]*OpCode
-	log     *logging.Log
+	opCodes      []OpCode
+	lookup       map[uint8]*OpCode
+	log          *logging.Log
 }
 func New(log *logging.Log) *OperationCodes {
 	operationCodes := &OperationCodes{
@@ -136,7 +136,7 @@ func New(log *logging.Log) *OperationCodes {
 		lookup: defineOpCodes(),
 	}
 	for _, oc := range operationCodes.lookup {
-		oc.defaults = oc.Lines
+		oc.Defaults = oc.Lines
 	}
 	return operationCodes
 }
@@ -724,39 +724,40 @@ func setDefaultLines(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
 		for timing := 0; timing < int(oc.Steps); timing++ {
 			oc.Lines[flags][timing][PHI1] = defaults
-			oc.Lines[flags][timing][PHI1][E3] ^= E3_CLK1
+			oc.Lines[flags][timing][PHI1] ^= E3_CLK1
 			oc.Lines[flags][timing][PHI2] = defaults
-			oc.Lines[flags][timing][PHI2][E3] ^= E3_CLK2
+			oc.Lines[flags][timing][PHI2] ^= E3_CLK2
 		}
 		// Add a clock reset to the last PHI2 step of every instruction
-		oc.Lines[flags][oc.Steps - 1][PHI2][0] ^= E1_TRST
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= E1_TRST
 	}
 }
 func addIRLoad(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
 		// Add an IR load to the first line PHI1 step of every instruction
-		oc.Lines[flags][0][PHI1][0] ^= E1_IRLD
+		oc.Lines[flags][0][PHI1] ^= E1_IRLD
 
 	}
 }
 
 type OpCode struct {
-	Name      string             `json:"name"`
-	OpCode    uint8              `json:"opCode"`
-	Syntax    string             `json:"syntax"`
-	AddrMode  uint8              `json:"addrMode"`
-	Operands  uint8              `json:"operands"`
-	Steps     uint8              `json:"steps"`
-	PageCross bool               `json:"pageCross"`
-	BranchBit uint8              `json:"branchBit"`
-	BranchSet bool               `json:"branchSet"`
-	Lines    [16][8][2][3]uint16 `json:"lines,omitempty"`
-	defaults [16][8][2][3]uint16 `json:"lines,omitempty"`
-	// Flags, Timing, Clock 1/0, Eproms*3
+	Name      string           `json:"name"`
+	OpCode    uint8            `json:"opCode"`
+	Syntax    string           `json:"syntax"`
+	AddrMode  uint8            `json:"addrMode"`
+	Operands  uint8            `json:"operands"`
+	Steps     uint8            `json:"steps"`
+	PageCross bool             `json:"pageCross"`
+	BranchBit uint8            `json:"branchBit"`
+	BranchSet bool             `json:"branchSet"`
+	Lines     [16][8][2]uint64 `json:"lines,omitempty"`
+	Defaults  [16][8][2]uint64 `json:"lines,omitempty"`
+	// Flags, Timing, Clock 1/0
 }
-func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []string) {
-	var lines  []string
-	var lines2 []string
+func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []string, [6]string) {
+	var lines   []string
+	var lines2  []string
+	var outputs [6]string
 	for i := uint8(0); i < op.Steps; i++ {
 		colour  := lineColor
 		for j := uint8(0); j < 2; j++ {
@@ -773,51 +774,50 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []strin
 					lines2 = op.getActiveLines(flags, step, clock)
 				}
 			}
-			str := op.uint16ToBinary(op.Lines[flags][i][j][0], op.defaults[flags][i][j][0], colour) + "  " +
-				op.uint16ToBinary(op.Lines[flags][i][j][1], op.defaults[flags][i][j][1], colour) + "  " +
-				op.uint16ToBinary(op.Lines[flags][i][j][2], op.defaults[flags][i][j][2], colour)
+			str := op.uint64ToBinary(op.Lines[flags][i][j], op.Defaults[flags][i][j], colour)
 			line := fmt.Sprintf("%s%s Φ%d%s %s %s%s%s", timing, clockColour, j + 1, timeMarker, chevron, colour, str, common.Reset)
 			lines = append(lines, line)
 		}
 	}
-	return lines, lines2
+
+	outputs[0] = OutputsDB [op.Lines[flags][step][clock] & (E1_DBD0 | E1_DBD1 | E1_DBD2)]
+	outputs[1] = OutputsADH[op.Lines[flags][step][clock] & (E1_AHD0 | E1_AHD1)]
+	outputs[2] = OutputsADL[op.Lines[flags][step][clock] & (E1_ALD0 | E1_ALD1 | E1_ALD2)]
+	outputs[3] = OutputsSB [op.Lines[flags][step][clock] & (E3_SBD0 | E3_SBD1 | E3_SBD2)]
+	//outputs[4] = OutputsSB [e23 & (E3_SBD0 | E3_SBD1 | E3_SBD2)]
+
+
+	return lines, lines2, outputs
 }
 func (op *OpCode) getActiveLines(flags uint8, step uint8, clock uint8) []string {
 	source := lineDescriptions
 	if showMnemonic { source = lineNames }
 	var lines []string
 	var index = 0
-	for e := 0; e < 3; e ++ {
-		bit := uint16(0x8000)
-		l := op.Lines[flags][step][clock][e] ^ op.defaults[flags][step][clock][e]
-		for bit > 0 {
-			if l & bit > 0 {
-				lines = append(lines, source[index])
-			}
-			index++
-			bit >>= 1
+	bit := uint64(140737488355328)
+	l := op.Lines[flags][step][clock] ^ op.Defaults[flags][step][clock]
+	for bit > 0 {
+		if l & bit > 0 {
+			lines = append(lines, source[index])
 		}
+		index++
+		bit >>= 1
 	}
 	return lines
 }
-func (op *OpCode) uint16ToBinary(dword uint16, original_dword uint16, lineColor string) string {
+func (op *OpCode) uint64ToBinary(qword uint64, originalQword uint64, lineColor string) string {
 	str := fmt.Sprintf("%s%%s%s", lineChanged, lineColor)
 	bs := ""
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 48; i++ {
 		state := "0"
-		x := dword & 32768
-		if x > 0 {
-			state = "1"
-		}
-		if original_dword & 32768 != x {
-			state = fmt.Sprintf(str, state)
-		}
+		x := qword & 140737488355328
+		if x > 0 { state = "1" }
+		if originalQword & 140737488355328 != x { state = fmt.Sprintf(str, state) }
 		bs += state
-		if i == 7 {
-			bs += " "
-		}
-		dword <<= 1
-		original_dword <<= 1
+		if (i + 1) % 8 == 0 { bs += " " }
+		if (i + 1) % 16 == 0 { bs += " " }
+		qword <<= 1
+		originalQword <<= 1
 	}
 	return string(bs)
 }
