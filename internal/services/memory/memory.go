@@ -156,7 +156,7 @@ func (m *Memory) disassemble(nStart, nStop uint16) map[uint16] string {
 		// address as the key. This makes it convenient to look for later
 		// as the instructions are variable in length, so a straight up
 		// incremental index is not sufficient.
-		mapLines[lineAddr] = fmt.Sprintf("%-34s", sInst)
+		mapLines[lineAddr] = fmt.Sprintf("%-30s", sInst)
 
 	}
 	return mapLines

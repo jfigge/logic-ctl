@@ -724,18 +724,18 @@ func setDefaultLines(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
 		for timing := 0; timing < int(oc.Steps); timing++ {
 			oc.Lines[flags][timing][PHI1] = defaults
-			oc.Lines[flags][timing][PHI1] ^= E3_CLK1
+			oc.Lines[flags][timing][PHI1] ^= CL_CLK1
 			oc.Lines[flags][timing][PHI2] = defaults
-			oc.Lines[flags][timing][PHI2] ^= E3_CLK2
+			oc.Lines[flags][timing][PHI2] ^= CL_CLK2
 		}
 		// Add a clock reset to the last PHI2 step of every instruction
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= E1_TRST
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_TRST
 	}
 }
 func addIRLoad(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
 		// Add an IR load to the first line PHI1 step of every instruction
-		oc.Lines[flags][0][PHI1] ^= E1_IRLD
+		oc.Lines[flags][0][PHI1] ^= CL_IRLD
 
 	}
 }
@@ -754,10 +754,11 @@ type OpCode struct {
 	Defaults  [16][8][2]uint64 `json:"lines,omitempty"`
 	// Flags, Timing, Clock 1/0
 }
-func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []string, [6]string) {
-	var lines   []string
-	var lines2  []string
-	var outputs [6]string
+func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []string, [4]string, [4]string) {
+	var lines         []string
+	var lines2        []string
+	var outputs       [4]string
+	var aluOperations [4]string
 	for i := uint8(0); i < op.Steps; i++ {
 		colour  := lineColor
 		for j := uint8(0); j < 2; j++ {
@@ -780,14 +781,18 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []strin
 		}
 	}
 
-	outputs[0] = OutputsDB [op.Lines[flags][step][clock] & (E1_DBD0 | E1_DBD1 | E1_DBD2)]
-	outputs[1] = OutputsADH[op.Lines[flags][step][clock] & (E1_AHD0 | E1_AHD1)]
-	outputs[2] = OutputsADL[op.Lines[flags][step][clock] & (E1_ALD0 | E1_ALD1 | E1_ALD2)]
-	outputs[3] = OutputsSB [op.Lines[flags][step][clock] & (E3_SBD0 | E3_SBD1 | E3_SBD2)]
-	//outputs[4] = OutputsSB [e23 & (E3_SBD0 | E3_SBD1 | E3_SBD2)]
+	outputs[0] = OutputsDB [op.Lines[flags][step][clock] & (CL_DBD0|CL_DBD1|CL_DBD2)]
+	outputs[1] = OutputsADH[op.Lines[flags][step][clock] & (CL_AHD0|CL_AHD1)]
+	outputs[2] = OutputsADL[op.Lines[flags][step][clock] & (CL_ALD0|CL_ALD1|CL_ALD2)]
+	outputs[3] = OutputsSB [op.Lines[flags][step][clock] & (CL_SBD0|CL_SBD1|CL_SBD2)]
+
+	aluOperations[0] = AluA  [op.Lines[flags][step][clock] & (CL_AUSA)]
+	aluOperations[1] = AluB  [op.Lines[flags][step][clock] & (CL_AUSB)]
+	aluOperations[2] = AluOp [op.Lines[flags][step][clock] & (CL_AUIB|CL_AUS1|CL_AUS2|CL_AUO1|CL_AUO2)]
+	aluOperations[3] = AluDir[op.Lines[flags][step][clock] & (CL_AUS1|CL_AUS2|CL_AULR)]
 
 
-	return lines, lines2, outputs
+	return lines, lines2, outputs, aluOperations
 }
 func (op *OpCode) getActiveLines(flags uint8, step uint8, clock uint8) []string {
 	source := lineDescriptions
@@ -820,4 +825,43 @@ func (op *OpCode) uint64ToBinary(qword uint64, originalQword uint64, lineColor s
 		originalQword <<= 1
 	}
 	return string(bs)
+}
+func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bool) {
+	// Validation on which bits can be set when.
+	switch uint64(1 << bit) {
+	case CL_TRST:
+		return "Timer reset cannot be changed", false
+
+	case CL_IRLD:
+		if clock != PHI1 {
+			return "Instruction Register can only be loaded on Phi-1", false
+		}
+	case CL_DBRW:
+		if clock != PHI2 {
+			return "Data write can only be activated on Phi-2", false
+		}
+	case CL_ALLD:
+		if clock != PHI1 {
+			return "Address bus low can only be loaded on phi-1", false
+		}
+	case CL_AHLD:
+		if clock != PHI1 {
+			return "Address bus high can only be loaded on phi-1", false
+		}
+	case CL_PCIN:
+		if clock != PHI2 {
+			return "Program counter can only be incremented on phi-2", false
+		}
+	case CL_PCLL:
+		if clock != PHI2 {
+			return "Program counter low can only be loaded on phi-2", false
+		}
+	case CL_PCLH:
+		if clock != PHI2 {
+			return "Program counter high can only be loaded on phi-2", false
+		}
+	case CL_CLK1, CL_CLK2:
+		return "Clock lines cannot be changed", false
+	}
+	return "Ok", true
 }

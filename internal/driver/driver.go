@@ -167,6 +167,10 @@ func (d *Driver) SetAddress(address uint16) {
 func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
+		if d.opCode == nil {
+			d.opCodes.Lookup(0)
+		}
+		d.codes.SetSteps(d.opCode.Steps)
 		hex := display.HexData(opCode)
 		str := fmt.Sprintf("OpCode set to %s (%s)", hex, d.opCode.Name)
 		d.log.Debug(str)
@@ -188,9 +192,15 @@ func (d *Driver) tick(synchronized bool) {
 	}
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
-	flags := 0
+
+	if str, ok := d.opCode.ValidateLine(step, clock, bit); !ok {
+		d.log.Warn(str)
+		return
+	}
+
+	flags := uint8(0)
 	if !d.ignoreFlags {
-		d.status.CurrentFlags()
+		flags = d.status.CurrentFlags()
 	}
 	mask := uint64(1 << bit)
 	switch value{
@@ -270,7 +280,8 @@ func (d *Driver) Draw(t *display.Terminal) {
 	offset := d.display.Rows() - 5
 	if d.serial.IsConnected() {
 		var aLines  []string
-		var outputs [6]string
+		var outputs[4]string
+		var AluOperations[4]string
 		flags := uint8(0)
 		if !d.ignoreFlags {
 			flags = d.status.CurrentFlags()
@@ -281,7 +292,7 @@ func (d *Driver) Draw(t *display.Terminal) {
 			t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
 		}
 
-		lines, aLines, outputs = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState())
+		lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState())
 		for i := 0; i < len(lines); i++ {
 			t.PrintAt(1, 21+i, lines[i])
 		}
@@ -304,15 +315,19 @@ func (d *Driver) Draw(t *display.Terminal) {
 
 		// Bus Content
 		t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
-		t.PrintAtf(85,  8, "%sDB:  %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
+		t.PrintAtf(86,  8, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
 		t.PrintAtf(85,  9, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
-		t.PrintAtf(85, 10, "%sAHD: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
-		t.PrintAtf(85, 11, "%sSB:  %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
+		t.PrintAtf(85, 10, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
+		t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
 
 		// ALU Operation
-		t.PrintAtf(94, 13, "%sALU", common.Yellow)
-		t.PrintAtf(85, 14, "%sOperation: %s", common.White, outputs[4], display.ClearEnd)
-		t.PrintAtf(85, 14, "%sOperation: %s", common.White, outputs[5], display.ClearEnd)
+		t.PrintAtf(90, 13, "%sALU", common.Yellow)
+		t.PrintAtf(87, 14, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
+		t.PrintAtf(87, 15, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
+		t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
+		if AluOperations[3] != "" {
+			t.PrintAtf(85, 17, "%sDir: %s%s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
+		}
 
 		d.display.ShowCursor()
 	}
