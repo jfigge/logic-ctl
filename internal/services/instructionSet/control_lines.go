@@ -42,8 +42,8 @@ const (
 	CL_PAUS // Set clock manual step mode
 	CL_HALT // Stop clock until reset
 
-	CL_UNU2 // Unused #2
-	CL_UNU1 // Unused #1
+	CL_UNU3 // Unused #2
+	CL_CRST // Clear reset
 	CL_ALC0 // Address Low constant (0)
 	CL_ALC1 // Address Low constant (1)
 	CL_ALC2 // Address Low constant (2)
@@ -54,8 +54,8 @@ const (
 	CL_PCLH // Load program counter from ADH
 	CL_PCLL // Load program counter from ADL
 	CL_PCIN // Increment program counter
+	CL_UNU1 // Unused #2
 	CL_DBRW // Data bus Read/Write (0=Read, 1=Write)
-	CL_IRLD // Instruction counter load
 	CL_ALD2 // Address low driver 4-bit
 	CL_ALD1 // Address low driver 2-bit
 	CL_ALD0 // Address low driver 1-bit
@@ -67,7 +67,7 @@ const (
 	CL_AHC1 // Address bus high Constant (1-7)
 	CL_AHD1 // Address high driver 2-bit
 	CL_AHD0 // Address high driver 1-bit
-	CL_TRST // Timer reset
+	CL_CTMR // Timer reset
 )
 
 const (
@@ -104,8 +104,8 @@ const (
 var (
 	lineNames = []string{
 		/* EPROM 1a */ "TRST", "AHD0", "AHD1", "AHC1", "AHC0", "DBD0", "DBD1", "DBD2",
-		/* EPROM 1b */ "ALD0", "ALD1", "ALD2", "IRLD", "DBRW", "PCIN", "PCLL", "PCLH",
-		/* EPROM 2a */ "ALLD", "AHLD", "SPLD", "ALC2", "ALC1", "ALC0", "UNU1", "UNU2",
+		/* EPROM 1b */ "ALD0", "ALD1", "ALD2", "UNU1", "DBRW", "PCIN", "PCLL", "PCLH",
+		/* EPROM 2a */ "ALLD", "AHLD", "SPLD", "ALC2", "ALC1", "ALC0", "CRST", "UNU2",
 		/* EPROM 2b */ "HALT", "PAUS", "AUIB", "AUSB", "AUSA", "AUO1", "AUO2", "AUS1",
 		/* EPROM 3a */ "AUS2", "AULR", "SBLA", "SBLY", "SBLX", "SBD0", "SBD1", "SBD2",
 		/* EPROM 3b */ "FLGS", "FLGN", "FLGV", "FLGC", "FLGZ", "FLGI", "CLK1", "CLK2",
@@ -124,8 +124,8 @@ var (
 		"Address Low driver 1-bit",
 		"Address Low driver 2-bit",
 		"Address Low driver 4-bit",
-		"Instruction counter load",
 		"Data bus Read/Write (0=Read, 1=Write)",
+		"Unused #1",
 		"Increment program counter",
 		"Load program counter from ADL",
 		"Load program counter from ADH",
@@ -136,7 +136,7 @@ var (
 		"Address Low constant (2)",
 		"Address Low constant (1)",
 		"Address Low constant (0)",
-		"Unused #1",
+		"Clear Reset",
 		"Unused #2",
 		// EPROM 2b
 		"Stop clock until reset",
@@ -166,8 +166,8 @@ var (
 		"Clock Phi-1",
 		"Clock Phi-2",
 	}
-	defaults = uint64(CL_TRST | CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_PCLH | CL_PCLL | CL_IRLD | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 |
-		CL_HALT | CL_UNU1 | CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 |
+	defaults = uint64(CL_CTMR | CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
+		CL_HALT | CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 |
 		CL_AUS2 | CL_SBD2 | CL_SBD1 | CL_SBD0 | CL_SBLX | CL_SBLY | CL_SBLA | CL_FLGS)
 
 	OutputsDB  = map[uint64]string {

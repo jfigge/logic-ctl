@@ -12,14 +12,14 @@ const (
 )
 
 type Clock struct {
-	state uint8
-	tick  func(synchronized bool)
-	log   *logging.Log
+	state  uint8
+	tick   func(synchronized bool)
+	log    *logging.Log
 }
 func NewClock(log *logging.Log, tick func(synchronized bool)) *Clock {
 	return &Clock{
-		log:  log,
-		tick: tick,
+		log:    log,
+		tick:   tick,
 	}
 }
 

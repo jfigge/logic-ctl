@@ -17,6 +17,7 @@ import (
 
 type Driver struct {
 	address      uint16
+	lines        uint64
 	opCode       *instructionSet.OpCode
 	display      *display.Terminal
 	clock        *status.Clock
@@ -54,12 +55,12 @@ func New() *Driver {
 	d.errorPage  = NewErrorPage()
 	d.log        = logging.New(d.redraw)
 	d.status     = status.NewStatus(d.log)
-	d.irq        = status.NewIrq(d.log)
-	d.nmi        = status.NewNmi(d.log)
-	d.reset      = status.NewReset(d.log)
 	d.opCodes    = instructionSet.New(d.log)
-	d.codes      = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
 	d.clock      = status.NewClock(d.log, d.tick)
+	d.irq        = status.NewIrq(d.log, d.redraw)
+	d.nmi        = status.NewNmi(d.log, d.redraw)
+	d.reset      = status.NewReset(d.log, d.redraw)
+	d.codes      = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
 	d.serial     = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus, d.tick)
 	d.memory     = memory.New(d.log, d.opCodes)
 
@@ -168,13 +169,11 @@ func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
 		if d.opCode == nil {
-			d.opCodes.Lookup(0)
+			d.log.Warnf("Invalid opCode request: 0x%s.  Changing to reset", display.HexData(opCode))
+			d.opCode = d.opCodes.Lookup(0x02)
 		}
+		d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
 		d.codes.SetSteps(d.opCode.Steps)
-		hex := display.HexData(opCode)
-		str := fmt.Sprintf("OpCode set to %s (%s)", hex, d.opCode.Name)
-		d.log.Debug(str)
-		d.SetDirty(true)
 	}
 }
 
@@ -186,9 +185,9 @@ func (d *Driver) reinitialize() {
 }
 func (d *Driver) tick(synchronized bool) {
 	if synchronized {
-		tickFunc(d)
+		tickFunc(d, false)
 	} else {
-		go tickFunc(d)
+		go tickFunc(d, true)
 	}
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
@@ -238,13 +237,6 @@ func (d *Driver) Draw(t *display.Terminal) {
 		}
 	}
 
-	// Indicate if the board is connected
-	colour := common.BGGreen
-	if !d.serial.IsConnected() {
-		colour = common.BGRed
-	}
-	d.display.PrintAtf(1, 1, "%s   %s" , colour, common.Reset)
-
 	// IRQ
 	t.PrintAtf(84, 1, "%sIRQ", common.Yellow)
 	t.PrintAt(85, 2, d.irq.IrqBlock())
@@ -276,9 +268,19 @@ func (d *Driver) Draw(t *display.Terminal) {
 		t.PrintAt(55, 8+i, lines[uint16(i)])
 	}
 
+	// Indicate if the board is connected
+	colour := common.BGGreen + common.White
+	if !d.serial.IsConnected() {
+		colour = common.BGRed + common.White
+	}
+
 	// Control lines
 	offset := d.display.Rows() - 5
-	if d.serial.IsConnected() {
+	if !d.serial.IsConnected() {
+		d.display.PrintAtf(1, 1, "%s   %s" , colour, common.Reset)
+	} else {
+		d.display.PrintAtf(1, 1, "%s%-3s%s" , colour, d.opCode.Name, common.Reset)
+
 		var aLines  []string
 		var outputs[4]string
 		var AluOperations[4]string
@@ -370,11 +372,9 @@ func (d *Driver) Process(a int, k int) bool {
 		d.log.Warnf("Unknown code: [%v]", k)
 	} else {
 		switch a {
-		case 'a':
-			if a, ok := d.serial.ReadAddress(); ok {
-				d.SetAddress(a)
-				d.SetDirty(false)
-			}
+		case 'f':
+			d.ignoreFlags = !d.ignoreFlags
+			d.reinitialize()
 		case 's':
 			if s, ok := d.serial.ReadStatus(); ok {
 				d.status.SetStatus(s)
@@ -393,9 +393,6 @@ func (d *Driver) Process(a int, k int) bool {
 		case 'm':
 			d.opCodes.ToggleMnemonic()
 			d.redraw()
-		case 'M':
-			d.ignoreFlags = !d.ignoreFlags
-			d.reinitialize()
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
 		default:
@@ -405,15 +402,36 @@ func (d *Driver) Process(a int, k int) bool {
 	return false
 }
 
-func tickFunc(d *Driver) {
+func tickFunc(d *Driver, phaseChange bool) {
+
+	if phaseChange && (d.lines & instructionSet.CL_DBRW == 0 && d.clock.CurrentState() == instructionSet.PHI2) {
+		if b, ok := d.serial.ReadData(); ok {
+			d.memory.WriteMemory(d.address, b)
+		} else {
+			d.log.Warnf("Failed to write data %s to address: %s", display.HexData(b), display.HexAddress(d.address))
+		}
+	}
+
 	if state, ok := d.serial.ReadStatus(); ok { d.status.SetStatus(state) } else { return }
 	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address) } else { return }
-	if opCode, ok := d.serial.ReadOpCode(); ok { d.SetOpCode(opCode) } else { return }
+	if opCode, ok := d.serial.ReadOpCode(); ok {
+		d.SetOpCode(opCode)
+	} else {
+		return }
 
 	flags := uint8(0)
 	if !d.ignoreFlags {
 		flags = d.status.CurrentFlags()
 	}
-	d.log.Debug(fmt.Sprintf("Ocdode: %d, Flags: %d, Step: %d, State: %d", d.opCode.OpCode, flags, d.status.CurrentStep(), d.clock.CurrentState()))
-	d.serial.SetLines(d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()])
+	d.lines = d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()]
+	d.serial.SetLines(d.lines)
+
+	if phaseChange && (d.lines & instructionSet.CL_DBRW != 0 && d.clock.CurrentState() == instructionSet.PHI2) {
+		if b, ok := d.memory.ReadMemory(d.address); ok {
+			d.serial.SetData(b)
+		} else {
+			d.log.Warnf("Failed to read memory at address: %s", display.HexAddress(d.address))
+		}
+	}
+	d.redraw()
 }

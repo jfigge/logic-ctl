@@ -242,27 +242,11 @@ func (s *Serial) SetData(data uint8) bool {
 	}
 
 	// Send command
-	if n, err := s.port.Write([]byte{0x64,data,0x0A}); err != nil {
+	if n, err := s.port.Write([]byte{0x44,data,0x0A}); err != nil {
 		s.log.Errorf("Failed to send request to set data: %v", err)
 		return false
 	} else if n != 3 {
 		s.log.Errorf("Unexpected number of bytes sent.  Expected 3, sent: %d", n)
-		return false
-	}
-
-	// Verify send
-	if n, err := s.port.Write([]byte("d\n")); err != nil {
-		s.log.Errorf("Failed to verify set data: %v", err)
-		return false
-	} else if n != 2 {
-		s.log.Errorf("Unexpected number of bytes sent.  Expected 2, sent: %d", n)
-		return false
-	}
-
-	// Receive data
-	b := <-s.data
-	if data != b {
-		s.log.Errorf("Verification failed.  Sent: %s, rerceived: %s", display.HexData(data), display.HexData(b))
 		return false
 	}
 	return true
@@ -331,29 +315,21 @@ func (s *Serial) driver() {
 		case 'k':
 			s.setStatus(<-s.buffer)
 			s.clock.ClockLow()
-			s.setDirty()
 		case 'K':
 			s.setStatus(<-s.buffer)
 			s.clock.ClockHigh()
-			s.setDirty()
 		case 'i':
 			s.irq.IrqLow()
-			s.setDirty()
 		case 'I':
 			s.irq.IrqHigh()
-			s.setDirty()
 		case 'n':
 			s.nmi.NmiLow()
-			s.setDirty()
 		case 'N':
 			s.nmi.NmiHigh()
-			s.setDirty()
 		case 'r':
 			s.reset.ResetLow()
-			s.setDirty()
 		case 'R':
 			s.reset.ResetHigh()
-			s.setDirty()
 		default:
 			s.log.Debugf("Unknown byte: %v", display.HexData(b))
 			if _, e := s.port.GetModemStatusBits(); e != nil {

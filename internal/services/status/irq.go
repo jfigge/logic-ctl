@@ -12,28 +12,32 @@ const (
 )
 
 type Irq struct {
-	state uint8
-	log   *logging.Log
+	state  uint8
+	log    *logging.Log
+	redraw func()
 }
 
-func NewIrq(log *logging.Log) *Irq {
+func NewIrq(log *logging.Log, redraw func()) *Irq {
 	return &Irq{
-		log: log,
+		log:    log,
+		redraw: redraw,
 	}
 }
 
-func (c *Irq) IrqHigh() {
-	c.state = 1
+func (i *Irq) IrqHigh() {
+	i.state = 1
+	i.redraw()
 }
 
-func (c *Irq) IrqLow() {
-	c.state = 0
+func (i *Irq) IrqLow() {
+	i.state = 0
+	i.redraw()
 }
 
-func (c *Irq) IrqBlock() string {
+func (i *Irq) IrqBlock() string {
 	str := irqLow
-	if c.state == 1 {
+	if i.state == 1 {
 		str = irqHigh
 	}
-	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, i.state, common.Reset)
 }

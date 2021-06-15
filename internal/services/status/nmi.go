@@ -12,28 +12,32 @@ const (
 )
 
 type Nmi struct {
-	state uint8
-	log   *logging.Log
+	state  uint8
+	log    *logging.Log
+	redraw func()
 }
 
-func NewNmi(log *logging.Log) *Nmi {
+func NewNmi(log *logging.Log, redraw func()) *Nmi {
 	return &Nmi{
-		log: log,
+		log:    log,
+		redraw: redraw,
 	}
 }
 
-func (c *Nmi) NmiHigh() {
-	c.state = 1
+func (n *Nmi) NmiHigh() {
+	n.state = 1
+	n.redraw()
 }
 
-func (c *Nmi) NmiLow() {
-	c.state = 0
+func (n *Nmi) NmiLow() {
+	n.state = 0
+	n.redraw()
 }
 
-func (c *Nmi) NmiBlock() string {
+func (n *Nmi) NmiBlock() string {
 	str := nmiLow
-	if c.state == 1 {
+	if n.state == 1 {
 		str = nmiHigh
 	}
-	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, n.state, common.Reset)
 }

@@ -12,28 +12,30 @@ const (
 )
 
 type Reset struct {
-	state uint8
-	log   *logging.Log
+	state  uint8
+	log    *logging.Log
+	redraw func()
 }
-
-func NewReset(log *logging.Log) *Reset {
+func NewReset(log *logging.Log, redraw func()) *Reset {
 	return &Reset{
-		log: log,
+		log:    log,
+		redraw: redraw,
 	}
 }
 
-func (c *Reset) ResetHigh() {
-	c.state = 1
+func (r *Reset) ResetHigh() {
+	r.state = 1
+	r.redraw()
+}
+func (r *Reset) ResetLow() {
+	r.state = 0
+	r.redraw()
 }
 
-func (c *Reset) ResetLow() {
-	c.state = 0
-}
-
-func (c *Reset) ResetBlock() string {
+func (r *Reset) ResetBlock() string {
 	str := resetLow
-	if c.state == 1 {
+	if r.state == 1 {
 		str = resetHigh
 	}
-	return fmt.Sprintf("%s%d%s", str, c.state, common.Reset)
+	return fmt.Sprintf("%s%d%s", str, r.state, common.Reset)
 }

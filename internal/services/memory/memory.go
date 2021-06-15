@@ -164,7 +164,7 @@ func (m *Memory) disassemble(nStart, nStop uint16) map[uint16] string {
 
 func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 	m.lastAction = read
-	m.log.Infof("Memory[%s] returned %s", display.HexAddress(address), display.HexData(m.memory[address]))
+	m.log.Debugf("Memory[%s] returned %s", display.HexAddress(address), display.HexData(m.memory[address]))
 	return m.memory[address], true
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
@@ -210,7 +210,7 @@ func (m *Memory) InstructionBlock(address uint16) (lines []string) {
 	i := int(address) - int(highlight)
 	if i < 0 {
 		highlight = uint16(int(highlight) + i)
-		i = 9
+		i = 0
 	}
 
 	memSize :=len(m.memory)

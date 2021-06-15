@@ -123,7 +123,10 @@ const (
 	timeMarker  = common.BrightWhite
 )
 
-var showMnemonic bool
+var (
+	showMnemonic     bool
+	addressModeNames = []string{"", "IMM", "IMP", "IZX", "IZY", "ZPG", "ZPX", "ZPY", "REL", "ABS", "ABX", "ABY", "IND", "ACC"}
+)
 
 type OperationCodes struct {
 	opCodes      []OpCode
@@ -324,9 +327,9 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: B
 		// BRK causes a non-maskable interrupt and increments the program counter by one. Therefore an RTI will go to the address of the BRK +2 so that BRK may be used to replace a two-byte instruction for debugging and the subsequent RTI will be correct.
 		0x00 : brk(IMP, "BRK", "", 0x00, 1, 7, false),
-		0x02 : brk(IMP, "IRQ", "", 0x02, 1, 7, false), // Pseudo instruction
+		0x02 : brk(IMP, "RST", "", 0x02, 1, 7, false), // Pseudo instruction
 		0x12 : brk(IMP, "NMI", "", 0x12, 1, 7, false), // Pseudo instruction
-		0x22 : brk(IMP, "RST", "", 0x22, 1, 7, false), // Pseudo instruction
+		0x22 : brk(IMP, "IRQ", "", 0x22, 1, 7, false), // Pseudo instruction
 
 
 		// CMP (CoMPare accumulator)
@@ -646,7 +649,6 @@ func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.BranchSet = false
 
 	setDefaultLines(oc)
-	addIRLoad(oc)
 	return oc
 }
 func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool) *OpCode {
@@ -729,14 +731,7 @@ func setDefaultLines(oc *OpCode) {
 			oc.Lines[flags][timing][PHI2] ^= CL_CLK2
 		}
 		// Add a clock reset to the last PHI2 step of every instruction
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_TRST
-	}
-}
-func addIRLoad(oc *OpCode) {
-	for flags := 0; flags < 16; flags++ {
-		// Add an IR load to the first line PHI1 step of every instruction
-		oc.Lines[flags][0][PHI1] ^= CL_IRLD
-
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_CTMR
 	}
 }
 
@@ -829,13 +824,8 @@ func (op *OpCode) uint64ToBinary(qword uint64, originalQword uint64, lineColor s
 func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bool) {
 	// Validation on which bits can be set when.
 	switch uint64(1 << bit) {
-	case CL_TRST:
+	case CL_CTMR:
 		return "Timer reset cannot be changed", false
-
-	case CL_IRLD:
-		if clock != PHI1 {
-			return "Instruction Register can only be loaded on Phi-1", false
-		}
 	case CL_DBRW:
 		if clock != PHI2 {
 			return "Data write can only be activated on Phi-2", false
