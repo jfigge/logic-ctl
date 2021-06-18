@@ -30,11 +30,10 @@ type Serial struct {
 	log        *logging.Log
 	setDirty   func()
 	setStatus  func(uint8)
-	tick       func(synchronized bool)
 	dirty      bool
 	initialize bool
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8), tick func(synchronized bool)) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8)) *Serial {
 	s := &Serial{
 		clock:     clock,
 		irq:       irq,
@@ -43,7 +42,6 @@ func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi
 		log:       log,
 		setDirty:  setDirty,
 		setStatus: setStatus,
-		tick:      tick,
 	}
 	return s
 }
@@ -106,8 +104,6 @@ func (s *Serial) Disconnect() bool {
 func (s *Serial) Reconnect() bool {
 	s.Connect(true)
 	if s.IsConnected() {
-		s.SetDirty(true)
-		s.tick(true)
 		return true
 	}
 	return false
@@ -285,8 +281,8 @@ func (s *Serial) reader() {
 	}()
 	for !s.terminated {
 		if n, err := s.port.Read(bs); err != nil {
-			s.log.Errorf("Read failed: %v", err)
-			s.terminated = true
+			s.Disconnect()
+			s.setDirty()
 		} else if n == 1 {
 			s.buffer <- bs[0]
 		} else {
@@ -296,55 +292,57 @@ func (s *Serial) reader() {
 	close(s.buffer)
 }
 func (s *Serial) driver() {
-	for  {
-		b:= <- s.buffer
-		s.log.Debugf("Inbound data: %s", string(b))
-		switch b {
-		case 'a':
-			s.address <- []byte {<-s.buffer,<-s.buffer}
-		case 'd':
-			s.data <- <-s.buffer
-		case 'o':
-			s.opCode <- <-s.buffer
-		case 's':
-			s.status <- <-s.buffer
-		case 'c':
-			s.clock.ClockLow()
-			s.setDirty()
-		case 'C':
-			s.clock.ClockHigh()
-			s.setDirty()
-		case 'k':
-			s.setStatus(<-s.buffer)
-			s.clock.ClockLow()
-		case 'K':
-			s.setStatus(<-s.buffer)
-			s.clock.ClockHigh()
-		case 'i':
-			s.irq.IrqLow()
-		case 'I':
-			s.irq.IrqHigh()
-		case 'n':
-			s.nmi.NmiLow()
-		case 'N':
-			s.nmi.NmiHigh()
-		case 'r':
-			s.reset.ResetLow()
-		case 'R':
-			s.reset.ResetHigh()
-		default:
-			s.log.Debugf("Unknown byte: %v", display.HexData(b))
-			if _, e := s.port.GetModemStatusBits(); e != nil {
-				s.Disconnect()
-				s.terminated = true
-				return
+	for  !s.terminated {
+		b := <- s.buffer
+		if b != byte(0) {
+			s.log.Debugf("Inbound data: %s", string(b))
+			switch b {
+			case 'a':
+				s.address <- []byte{<-s.buffer, <-s.buffer}
+			case 'd':
+				s.data <- <-s.buffer
+			case 'o':
+				s.opCode <- <-s.buffer
+			case 's':
+				s.status <- <-s.buffer
+			case 'c':
+				s.clock.ClockLow()
+				s.setDirty()
+			case 'C':
+				s.clock.ClockHigh()
+				s.setDirty()
+			case 'k':
+				s.setStatus(<-s.buffer)
+				s.clock.ClockLow()
+			case 'K':
+				s.setStatus(<-s.buffer)
+				s.clock.ClockHigh()
+			case 'i':
+				s.irq.IrqLow()
+			case 'I':
+				s.irq.IrqHigh()
+			case 'n':
+				s.nmi.NmiLow()
+			case 'N':
+				s.nmi.NmiHigh()
+			case 'r':
+				s.reset.ResetLow()
+			case 'R':
+				s.reset.ResetHigh()
+			default:
+				s.log.Debugf("Unknown byte: %v", display.HexData(b))
+				if _, e := s.port.GetModemStatusBits(); e != nil {
+					s.Disconnect()
+					s.terminated = true
+					return
+				}
 			}
 		}
 	}
 	s.log.Warn("Stopped receiving")
 }
 
-func (s *Serial) Draw(t *display.Terminal) {
+func (s *Serial) Draw(t *display.Terminal, connected bool) {
 	if !s.dirty && !s.initialize {
 		return
 	}  else if s.initialize {
@@ -377,7 +375,7 @@ func (s *Serial) SetDirty(initialize bool) {
 		s.initialize = true
 	}
 }
-func (s *Serial) Process(a int, k int) bool {
+func (s *Serial) Process(a int, k int, connected bool) bool {
 	return true
 }
 func (s *Serial) PortViewer() common.UI {

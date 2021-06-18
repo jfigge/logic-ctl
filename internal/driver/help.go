@@ -16,7 +16,7 @@ func (h *HelpPage) Help() common.UI {
 	h.initialize = true
 	return h
 }
-func (h *HelpPage) Draw(t *display.Terminal) {
+func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 	if !h.dirty && !h.initialize {
 		return
 	} else if h.initialize {
@@ -65,7 +65,7 @@ func (h *HelpPage) Draw(t *display.Terminal) {
 	t.PrintAtf(41,11, "%sH%s Toggle line help%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,11, "%sp%s Show ports%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf(1, t.Rows(), "%s'Press 'c' to clear, any other key to exit%s", common.Yellow, common.Reset)
+	t.PrintAtf(1, t.Rows(), "%s'Press any key to exit%s", common.Yellow, common.Reset)
 	h.dirty = false
 }
 func (h *HelpPage) SetDirty(initialize bool) {
@@ -74,7 +74,7 @@ func (h *HelpPage) SetDirty(initialize bool) {
 		h.initialize = true
 	}
 }
-func (h *HelpPage) Process(a int, k int) bool {
+func (h *HelpPage) Process(a int, k int, connected bool) bool {
 	if k != 0 {
 		switch k {
 		}

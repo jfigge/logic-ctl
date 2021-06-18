@@ -701,6 +701,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 		case 0x02: // Reset
 			oc.Lines[flags][4][PHI1] ^= CL_ALC1 | CL_ALC0
 			oc.Lines[flags][5][PHI1] ^= CL_ALC1
+			oc.Lines[flags][6][PHI2] ^= CL_CRST
 
 		case 0x12: // NMI
 			oc.Lines[flags][4][PHI1] ^= CL_ALC2 | CL_ALC0

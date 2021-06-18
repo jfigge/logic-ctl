@@ -14,7 +14,7 @@ func NewErrorPage() *ErrorPage {
 	return &ErrorPage{}
 }
 
-func (e *ErrorPage) Draw(t *display.Terminal) {
+func (e *ErrorPage) Draw(t *display.Terminal, connected bool) {
 	if !e.dirty && !e.initialize {
 		return
 	} else if e.initialize {
@@ -32,7 +32,7 @@ func (e *ErrorPage) SetDirty(initialize bool) {
 		e.initialize = true
 	}
 }
-func (e *ErrorPage) Process(a int, k int) bool {
+func (e *ErrorPage) Process(a int, k int, connected bool) bool {
 	if k != 0 {
 		switch k {
 

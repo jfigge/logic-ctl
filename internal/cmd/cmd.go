@@ -25,6 +25,7 @@ var rootCmd = &cobra.Command{
 
 		d := driver.New()
 		d.Run()
+		os.Exit(0)
 		return nil
 	},
 }

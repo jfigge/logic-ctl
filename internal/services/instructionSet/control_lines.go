@@ -324,7 +324,7 @@ func (l *ControlLines) SetEditStep(y uint8) {
 	l.cursor.y = int(y)
 }
 
-func (l *ControlLines) KeyIntercept(a int, k int) bool {
+func (l *ControlLines) KeyIntercept(a int, k int, connected bool) bool {
 	if k != 0 {
 		switch k {
 		case display.CursorUp:

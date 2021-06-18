@@ -63,7 +63,7 @@ func New() *Driver {
 	d.nmi        = status.NewNmi(d.log, d.redraw)
 	d.reset      = status.NewReset(d.log, d.redraw)
 	d.codes      = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial     = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus, d.tick)
+	d.serial     = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus)
 	d.memory     = memory.New(d.log, d.opCodes)
 
 	d.keyIntercept = append(d.keyIntercept, d.codes)
@@ -76,22 +76,29 @@ func (d *Driver) Run() {
 		d.log.Dump()
 		os.Exit(1)
 	}
-	d.serial.Connect(false)
-	d.tick(true)
+	if d.serial.Connect(false) {
+		tickFunc(d, false)
+	} else {
+		d.status.SetStatus(0)
+		d.SetAddress(0)
+		d.SetOpCode(0x02)
+	}
 	d.ready = true
 
 	for len(d.UIs) > 0 {
-		if !d.serial.IsConnected() {
-			if !d.serial.Reconnect() {
-				time.Sleep(500 * time.Millisecond)
+		connected := d.serial.IsConnected()
+		if !connected {
+			if connected = d.serial.Reconnect(); connected {
+				d.SetDirty(true)
+				tickFunc(d, false)
 			}
 		}
-		d.UIs[0].Draw(d.display)
-		if d.serial.IsConnected() {
-			a, k, _ := d.ReadChar()
-			if a != 0 || k != 0 {
-				if d.UIs[0].Process(a, k) {
-					d.UIs = d.UIs[1:]
+		d.UIs[0].Draw(d.display, connected)
+		a, k, _ := d.ReadChar()
+		if a != 0 || k != 0 {
+			if d.UIs[0].Process(a, k, connected) {
+				d.UIs = d.UIs[1:]
+				if len(d.UIs) > 0 {
 					d.UIs[0].SetDirty(true)
 				}
 			}
@@ -182,17 +189,17 @@ func (d *Driver) SetOpCode(opCode uint8) {
 }
 
 func (d *Driver) redraw() {
-	d.UIs[0].SetDirty(false)
+	if len(d.UIs) > 0 {
+		d.UIs[0].SetDirty(false)
+	}
 }
 func (d *Driver) reinitialize() {
-	d.UIs[0].SetDirty(true)
-}
-func (d *Driver) tick(synchronized bool) {
-	if synchronized {
-		tickFunc(d, false)
-	} else {
-		go tickFunc(d, true)
+	if len(d.UIs) > 0 {
+		d.UIs[0].SetDirty(true)
 	}
+}
+func (d *Driver) tick() {
+	go tickFunc(d, true)
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
@@ -227,7 +234,7 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 	}
 }
 
-func (d *Driver) Draw(t *display.Terminal) {
+func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// Skip a redraw if we/re not ready or already drawn
 	if !d.ready || (!d.dirty && !d.initialize)  {
@@ -288,64 +295,64 @@ func (d *Driver) Draw(t *display.Terminal) {
 
 	// Control lines
 	offset := d.display.Rows() - 5
-	if !d.serial.IsConnected() {
+	if !connected {
 		d.display.PrintAtf(1, 1, "%s   %s" , colour, common.Reset)
 	} else {
-		d.display.PrintAtf(1, 1, "%s%-3s%s" , colour, d.opCode.Name, common.Reset)
-
-		var aLines  []string
-		var outputs[4]string
-		var AluOperations[4]string
-		flags := uint8(0)
-		if !d.ignoreFlags {
-			flags = d.status.CurrentFlags()
-		}
-		if d.ignoreFlags {
-			t.PrintAtf(1, 20, "%sControl Lines (Ignoring flags)", common.Yellow)
-		} else {
-			t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
-		}
-
-		lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState(),
-			(d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
-		for i := 0; i < len(lines); i++ {
-			t.PrintAt(1, 21+i, lines[i])
-		}
-		t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
-		for i := 0; i < 12; i++ {
-			str := ""
-			if i < len(aLines) {
-				str = aLines[i]
-			}
-			t.PrintAtf(66, 21 + i, "%s%s%s%s", display.ClearEnd, common.Magenta , str, common.Reset)
-		}
-
-		// Control line names
-		offset := len(lines)
-		lines = d.codes.LineNamesBlock((d.codes.EditStep() - 1) % 2)
-		for i, line := range lines {
-			t.PrintAt(9, 21 + offset + i, line)
-		}
-		offset = 20 + offset + len(lines)
-
-		// Bus Content
-		t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
-		t.PrintAtf(86,  8, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
-		t.PrintAtf(85,  9, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
-		t.PrintAtf(85, 10, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
-		t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
-
-		// ALU Operation
-		t.PrintAtf(90, 13, "%sALU", common.Yellow)
-		t.PrintAtf(87, 14, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
-		t.PrintAtf(87, 15, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
-		t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
-		if AluOperations[3] != "" {
-			t.PrintAtf(85, 17, "%sDir: %s%s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
-		}
-
-		d.display.ShowCursor()
+		d.display.PrintAtf(1, 1, "%s%-3s%s", colour, d.opCode.Name, common.Reset)
 	}
+
+	var aLines  []string
+	var outputs[4]string
+	var AluOperations[4]string
+	flags := uint8(0)
+	if !d.ignoreFlags {
+		flags = d.status.CurrentFlags()
+	}
+	if d.ignoreFlags {
+		t.PrintAtf(1, 20, "%sControl Lines (Ignoring flags)", common.Yellow)
+	} else {
+		t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
+	}
+
+	lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState(),
+		(d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
+	for i := 0; i < len(lines); i++ {
+		t.PrintAt(1, 21+i, lines[i])
+	}
+	t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
+	for i := 0; i < 12; i++ {
+		str := ""
+		if i < len(aLines) {
+			str = aLines[i]
+		}
+		t.PrintAtf(66, 21 + i, "%s%s%s%s", display.ClearEnd, common.Magenta , str, common.Reset)
+	}
+
+	// Control line names
+	offset = len(lines)
+	lines = d.codes.LineNamesBlock((d.codes.EditStep() - 1) % 2)
+	for i, line := range lines {
+		t.PrintAt(9, 21 + offset + i, line)
+	}
+	offset = 20 + offset + len(lines)
+
+	// Bus Content
+	t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
+	t.PrintAtf(86,  8, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
+	t.PrintAtf(85,  9, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
+	t.PrintAtf(85, 10, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
+	t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
+
+	// ALU Operation
+	t.PrintAtf(90, 13, "%sALU", common.Yellow)
+	t.PrintAtf(87, 14, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
+	t.PrintAtf(87, 15, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
+	t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
+	if AluOperations[3] != "" {
+		t.PrintAtf(85, 17, "%sDir: %s%s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
+	}
+
+	d.display.ShowCursor()
 
 	// X and Y coordinates of cursor
 	str := d.codes.CursorPosition()
@@ -375,9 +382,9 @@ func (d *Driver) SetDirty(initialize bool) {
 		d.initialize = true
 	}
 }
-func (d *Driver) Process(a int, k int) bool {
+func (d *Driver) Process(a int, k int, connected bool) bool {
 	for _, ki := range d.keyIntercept {
-		if ki.KeyIntercept(a,k) {
+		if ki.KeyIntercept(a,k, connected) {
 			return false
 		}
 	}
@@ -414,7 +421,11 @@ func (d *Driver) Process(a int, k int) bool {
 
 func tickFunc(d *Driver, phaseChange bool) {
 
-	if phaseChange && (d.lines & instructionSet.CL_DBRW == 0 && d.clock.CurrentState() == instructionSet.PHI2) {
+	preState   := d.clock.CurrentState()
+	//preAddress := d.address
+	//preOpCode  := d.opCode.OpCode
+
+	if phaseChange && (d.lines & instructionSet.CL_DBRW == 0 && preState == instructionSet.PHI2) {
 		if b, ok := d.serial.ReadData(); ok {
 			d.memory.WriteMemory(d.address, b)
 		} else {
@@ -422,16 +433,19 @@ func tickFunc(d *Driver, phaseChange bool) {
 		}
 	}
 
+	postState, ok := d.serial.ReadStatus()
+	if ok { d.status.SetStatus(postState)} else { return }
+	postAddress, ok := d.serial.ReadAddress()
+	if ok { d.SetAddress(postAddress) } else { return }
+	postOpCode, ok := d.serial.ReadOpCode()
+	if ok { d.SetOpCode(postOpCode) } else { return }
 
-	if state, ok := d.serial.ReadStatus(); ok { d.status.SetStatus(state) } else { return }
-	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address) } else { return }
-	if opCode, ok := d.serial.ReadOpCode(); ok {
-		d.SetOpCode(opCode)
-	} else {
-		return }
-
+	flags := uint8(0)
+	if !d.ignoreFlags {
+		flags = d.status.CurrentFlags()
+	}
 	d.codes.SetEditStep(d.status.CurrentStep() * 2 + d.clock.CurrentState() + 1)
-	d.lines = d.opCode.Lines[d.status.CurrentFlags()][d.status.CurrentStep()][d.clock.CurrentState()]
+	d.lines = d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()]
 	d.serial.SetLines(d.lines)
 
 	if phaseChange && (d.lines & instructionSet.CL_DBRW != 0 && d.clock.CurrentState() == instructionSet.PHI2) {

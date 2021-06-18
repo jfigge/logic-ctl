@@ -14,7 +14,7 @@ type History struct {
 func (h* History) add(message string) {
 	h.messages = append(h.messages, message)
 }
-func (h *History) Draw(t *display.Terminal) {
+func (h *History) Draw(t *display.Terminal, connected bool) {
 	if !h.dirty && !h.initialize {
 		return
 	} else if h.initialize {
@@ -38,7 +38,7 @@ func (h *History) SetDirty(initialize bool) {
 		h.initialize = true
 	}
 }
-func (h *History) Process(a int, k int) bool {
+func (h *History) Process(a int, k int, connected bool) bool {
 	if k != 0 {
 		switch k {
 
