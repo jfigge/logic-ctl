@@ -29,6 +29,7 @@ type Driver struct {
 	opCodes      *instructionSet.OperationCodes
 	codes        *instructionSet.ControlLines
 	errorPage    *ErrorPage
+	helpPage     *HelpPage
 	memory       *memory.Memory
 	status       *status.Status
 	ready        bool
@@ -50,9 +51,10 @@ func New() *Driver {
 		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
-	d.ignoreFlags = false
+	d.ignoreFlags = true
 	d.UIs        = append(d.UIs, &d)
 	d.errorPage  = NewErrorPage()
+	d.helpPage   = NewHelpPage()
 	d.log        = logging.New(d.redraw)
 	d.status     = status.NewStatus(d.log)
 	d.opCodes    = instructionSet.New(d.log)
@@ -80,7 +82,9 @@ func (d *Driver) Run() {
 
 	for len(d.UIs) > 0 {
 		if !d.serial.IsConnected() {
-			d.serial.Reconnect()
+			if !d.serial.Reconnect() {
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 		d.UIs[0].Draw(d.display)
 		if d.serial.IsConnected() {
@@ -192,27 +196,35 @@ func (d *Driver) tick(synchronized bool) {
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
-	if str, ok := d.opCode.ValidateLine(step, clock, bit); !ok {
-		d.log.Warn(str)
-		return
-	}
-
 	flags := uint8(0)
 	if !d.ignoreFlags {
 		flags = d.status.CurrentFlags()
 	}
-	mask := uint64(1 << bit)
-	switch value{
-		case 0: d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] &^ mask
-		case 1: d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] | mask
-		case 2: d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] &^ mask | d.opCode.Defaults[flags][step][clock] & mask
-		case 3: d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] ^ mask
+
+	if value != 99 {
+		if str, ok := d.opCode.ValidateLine(step, clock, bit); !ok {
+			d.log.Warn(str)
+			return
+		}
+
+		mask := uint64(1 << bit)
+		switch value {
+		case 0:
+			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] &^ mask
+		case 1:
+			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] | mask
+		case 2:
+			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock]&^mask | d.opCode.Presets[flags][step][clock]&mask
+		case 3:
+			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] ^ mask
+		}
+		d.redraw()
 	}
+
 	if step == d.status.CurrentStep() &&
 	   clock == d.clock.CurrentState() {
 		d.serial.SetLines(d.opCode.Lines[flags][step][clock])
 	}
-	d.redraw()
 }
 
 func (d *Driver) Draw(t *display.Terminal) {
@@ -294,7 +306,8 @@ func (d *Driver) Draw(t *display.Terminal) {
 			t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
 		}
 
-		lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState())
+		lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState(),
+			(d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
 		for i := 0; i < len(lines); i++ {
 			t.PrintAt(1, 21+i, lines[i])
 		}
@@ -309,7 +322,7 @@ func (d *Driver) Draw(t *display.Terminal) {
 
 		// Control line names
 		offset := len(lines)
-		lines = d.codes.LineNamesBlock()
+		lines = d.codes.LineNamesBlock((d.codes.EditStep() - 1) % 2)
 		for i, line := range lines {
 			t.PrintAt(9, 21 + offset + i, line)
 		}
@@ -324,8 +337,8 @@ func (d *Driver) Draw(t *display.Terminal) {
 
 		// ALU Operation
 		t.PrintAtf(90, 13, "%sALU", common.Yellow)
-		t.PrintAtf(87, 14, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
-		t.PrintAtf(87, 15, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
+		t.PrintAtf(87, 14, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
+		t.PrintAtf(87, 15, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
 		t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
 		if AluOperations[3] != "" {
 			t.PrintAtf(85, 17, "%sDir: %s%s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
@@ -336,7 +349,7 @@ func (d *Driver) Draw(t *display.Terminal) {
 
 	// X and Y coordinates of cursor
 	str := d.codes.CursorPosition()
-	d.display.PrintAt(d.display.Cols() - len(str), d.display.Rows(), str)
+	d.display.PrintAt(d.display.Cols() - len(str), 1, str)
 
 	// Notifications
 	lines = d.log.LogBlock()
@@ -375,20 +388,17 @@ func (d *Driver) Process(a int, k int) bool {
 		case 'f':
 			d.ignoreFlags = !d.ignoreFlags
 			d.reinitialize()
-		case 's':
-			if s, ok := d.serial.ReadStatus(); ok {
-				d.status.SetStatus(s)
-				d.SetDirty(false)
-			}
 		case 'q':
 			return true
 		case 'd':
 			d.log.SetDebug(false)
 		case 'D':
 			d.log.SetDebug(true)
+		case 'h':
+			d.UIs = append([]common.UI{d.helpPage.Help()}, d.UIs...)
 		case 'H':
 			d.codes.ShowNames(!d.codes.IsShowNames())
-		case 'h':
+		case 'l':
 			d.UIs = append([]common.UI{d.log.HistoryViewer()}, d.UIs...)
 		case 'm':
 			d.opCodes.ToggleMnemonic()
@@ -412,6 +422,7 @@ func tickFunc(d *Driver, phaseChange bool) {
 		}
 	}
 
+
 	if state, ok := d.serial.ReadStatus(); ok { d.status.SetStatus(state) } else { return }
 	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address) } else { return }
 	if opCode, ok := d.serial.ReadOpCode(); ok {
@@ -419,11 +430,8 @@ func tickFunc(d *Driver, phaseChange bool) {
 	} else {
 		return }
 
-	flags := uint8(0)
-	if !d.ignoreFlags {
-		flags = d.status.CurrentFlags()
-	}
-	d.lines = d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()]
+	d.codes.SetEditStep(d.status.CurrentStep() * 2 + d.clock.CurrentState() + 1)
+	d.lines = d.opCode.Lines[d.status.CurrentFlags()][d.status.CurrentStep()][d.clock.CurrentState()]
 	d.serial.SetLines(d.lines)
 
 	if phaseChange && (d.lines & instructionSet.CL_DBRW != 0 && d.clock.CurrentState() == instructionSet.PHI2) {

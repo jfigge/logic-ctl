@@ -78,7 +78,7 @@ const (
 	// ZPX Address Mode: ZPG,  with X/Y Offset
 	// Fundamentally the same as ZPG,  addressing, but the contents of the X Register
 	// is added to the supplied single byte address. This is useful for iterating through
-	// ranges within the first page.
+	// ranges within the fi— page.
 	ZPX
 	ZPY
 
@@ -117,9 +117,10 @@ const (
 	timingColor = common.Yellow
 	clockColour = common.Cyan
 	lineColor   = common.Blue
-	lineChanged = common.Red
-	activeLine  = common.Blue + common.BrightGreen
-	activeClock = common.Red + common.BrightGreen
+	PresetChg   = common.BrightYellow
+	defaultChg  = common.BrightRed
+	activeLine  = common.BrightCyan
+	activeClock = common.BrightGreen
 	timeMarker  = common.BrightWhite
 )
 
@@ -139,7 +140,13 @@ func New(log *logging.Log) *OperationCodes {
 		lookup: defineOpCodes(),
 	}
 	for _, oc := range operationCodes.lookup {
-		oc.Defaults = oc.Lines
+		oc.Presets = oc.Lines
+		//for flags := uint8(0); flags < 16; flags++ {
+		//	for timing := uint8(0); timing < 8; timing++ {
+		//		oc.Presets[flags][timing][PHI1] = defaults
+		//		oc.Presets[flags][timing][PHI2] = defaults
+		//	}
+		//}
 	}
 	return operationCodes
 }
@@ -663,6 +670,47 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	setDefaultLines(oc)
+
+	for flags := 0; flags < 16; flags++ {
+		//oc.Lines[flags][0][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSB | CL_FLGC
+		//oc.Lines[flags][0][PHI2] ^= CL_FLGC | CL_DBD2
+		//oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
+		//oc.Lines[flags][1][PHI2] ^= CL_FLGC | CL_DBD1 | CL_DBD2
+		//oc.Lines[flags][2][PHI1] ^= CL_AULA | CL_SPLD | CL_AUSA | CL_SBD2
+		//oc.Lines[flags][2][PHI2] ^= 0
+
+		oc.Lines[flags][0][PHI1] ^= 0
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSB
+		oc.Lines[flags][1][PHI2] ^= CL_DBD1 | CL_PCIN
+		oc.Lines[flags][2][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD2
+		oc.Lines[flags][2][PHI2] ^= CL_DBD0 | CL_DBD1
+		oc.Lines[flags][3][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD2
+		oc.Lines[flags][3][PHI2] ^= CL_DBD2
+		oc.Lines[flags][4][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_AULA | CL_ALLD | CL_AHLD | CL_SPLD | CL_AUSA
+		oc.Lines[flags][4][PHI2] ^= CL_AULB
+		oc.Lines[flags][5][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_ALLD
+		oc.Lines[flags][5][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_PCLL | CL_PCLH
+		oc.Lines[flags][6][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
+		oc.Lines[flags][6][PHI2] ^= 0
+
+		switch opcode {
+		case 0x00: // Break
+			oc.Lines[flags][4][PHI1] ^= CL_ALC0
+
+		case 0x02: // Reset
+			oc.Lines[flags][4][PHI1] ^= CL_ALC1 | CL_ALC0
+			oc.Lines[flags][5][PHI1] ^= CL_ALC1
+
+		case 0x12: // NMI
+			oc.Lines[flags][4][PHI1] ^= CL_ALC2 | CL_ALC0
+			oc.Lines[flags][5][PHI1] ^= CL_ALC2
+
+		case 0x22: // IRQ
+			oc.Lines[flags][4][PHI1] ^= CL_ALC0
+
+		}
+	}
 	return oc
 }
 func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
@@ -724,14 +772,14 @@ func stk(name string, opcode uint8, timing uint8) *OpCode {
 
 func setDefaultLines(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
-		for timing := 0; timing < int(oc.Steps); timing++ {
-			oc.Lines[flags][timing][PHI1] = defaults
-			oc.Lines[flags][timing][PHI1] ^= CL_CLK1
-			oc.Lines[flags][timing][PHI2] = defaults
-			oc.Lines[flags][timing][PHI2] ^= CL_CLK2
+		for timing := uint8(0); timing < 8; timing++ {
+			oc.Lines[flags][timing][PHI1] = defaults[PHI1]
+			oc.Lines[flags][timing][PHI2] = defaults[PHI2]
+			if  timing >= oc.Steps - 1 {
+				// Add a clock reset to every PHI2 step on or after the last instruction
+				oc.Lines[flags][timing][PHI2] ^= CL_CTMR
+			}
 		}
-		// Add a clock reset to the last PHI2 step of every instruction
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_CTMR
 	}
 }
 
@@ -746,10 +794,10 @@ type OpCode struct {
 	BranchBit uint8            `json:"branchBit"`
 	BranchSet bool             `json:"branchSet"`
 	Lines     [16][8][2]uint64 `json:"lines,omitempty"`
-	Defaults  [16][8][2]uint64 `json:"lines,omitempty"`
+	Presets   [16][8][2]uint64 `json:"lines,omitempty"`
 	// Flags, Timing, Clock 1/0
 }
-func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []string, [4]string, [4]string) {
+func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, editPhase uint8) ([]string, []string, [4]string, [4]string) {
 	var lines         []string
 	var lines2        []string
 	var outputs       [4]string
@@ -767,57 +815,68 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8) ([]string, []strin
 				if j == clock {
 					chevron = ">"
 					colour = activeClock
-					lines2 = op.getActiveLines(flags, step, clock)
 				}
 			}
-			str := op.uint64ToBinary(op.Lines[flags][i][j], op.Defaults[flags][i][j], colour)
+			str := op.uint64ToBinary(op.Lines[flags][i][j], op.Presets[flags][i][j], defaults[j], colour)
 			line := fmt.Sprintf("%s%s Φ%d%s %s %s%s%s", timing, clockColour, j + 1, timeMarker, chevron, colour, str, common.Reset)
 			lines = append(lines, line)
 		}
 	}
 
-	outputs[0] = OutputsDB [op.Lines[flags][step][clock] & (CL_DBD0|CL_DBD1|CL_DBD2)]
-	outputs[1] = OutputsADH[op.Lines[flags][step][clock] & (CL_AHD0|CL_AHD1)]
-	outputs[2] = OutputsADL[op.Lines[flags][step][clock] & (CL_ALD0|CL_ALD1|CL_ALD2)]
-	outputs[3] = OutputsSB [op.Lines[flags][step][clock] & (CL_SBD0|CL_SBD1|CL_SBD2)]
+	lines2 = op.getActiveLines(flags, editStep, editPhase)
 
-	aluOperations[0] = AluA  [op.Lines[flags][step][clock] & (CL_AUSA)]
-	aluOperations[1] = AluB  [op.Lines[flags][step][clock] & (CL_AUSB)]
-	aluOperations[2] = AluOp [op.Lines[flags][step][clock] & (CL_AUIB|CL_AUS1|CL_AUS2|CL_AUO1|CL_AUO2)]
-	aluOperations[3] = AluDir[op.Lines[flags][step][clock] & (CL_AUS1|CL_AUS2|CL_AULR)]
+	outputs[0] = OutputsDB [op.Lines[flags][editStep][editPhase] & (CL_DBD0|CL_DBD1|CL_DBD2)]
+	outputs[1] = OutputsADL[op.Lines[flags][editStep][editPhase] & (CL_ALD0|CL_ALD1|CL_ALD2)]
+	outputs[2] = OutputsADH[op.Lines[flags][editStep][editPhase] & (CL_AHD0|CL_AHD1)]
+	outputs[3] = OutputsSB [op.Lines[flags][editStep][editPhase] & (CL_SBD0|CL_SBD1|CL_SBD2)]
 
+	aluOperations[0] = AluA  [op.Lines[flags][editStep][editPhase] & (CL_AUSA)]
+	aluOperations[1] = AluB  [op.Lines[flags][editStep][editPhase] & (CL_AUSB)]
+	aluOperations[2] = AluOp [op.Lines[flags][editStep][editPhase] & (CL_AUIB|CL_AUS1|CL_AUS2|CL_AUO1|CL_AUO2)]
+	aluOperations[3] = AluDir[op.Lines[flags][editStep][editPhase] & (CL_AUS1|CL_AUS2|CL_AULR)]
 
 	return lines, lines2, outputs, aluOperations
 }
 func (op *OpCode) getActiveLines(flags uint8, step uint8, clock uint8) []string {
 	source := lineDescriptions
-	if showMnemonic { source = lineNames }
+	if showMnemonic { source = mnemonics }
 	var lines []string
 	var index = 0
 	bit := uint64(140737488355328)
-	l := op.Lines[flags][step][clock] ^ op.Defaults[flags][step][clock]
+	l := op.Lines[flags][step][clock] ^ defaults[clock]
 	for bit > 0 {
 		if l & bit > 0 {
-			lines = append(lines, source[index])
+			lines = append(lines, source[index][clock])
 		}
 		index++
 		bit >>= 1
 	}
 	return lines
 }
-func (op *OpCode) uint64ToBinary(qword uint64, originalQword uint64, lineColor string) string {
-	str := fmt.Sprintf("%s%%s%s", lineChanged, lineColor)
+func (op *OpCode) uint64ToBinary(qword uint64, presetQword uint64, defaultQword uint64, lineColor string) string {
+
+	str1 := fmt.Sprintf("%s%%s%s", PresetChg, lineColor)
+	str2 := fmt.Sprintf("%s%%s%s", defaultChg, lineColor)
 	bs := ""
 	for i := 0; i < 48; i++ {
+		c := qword & 140737488355328         // current
+		p := presetQword & 140737488355328   // preset
+		d := defaultQword & 140737488355328  // default
+
 		state := "0"
-		x := qword & 140737488355328
-		if x > 0 { state = "1" }
-		if originalQword & 140737488355328 != x { state = fmt.Sprintf(str, state) }
+		if c > 0 { state = "1" }
+
+		if c == p && p != d {
+			state = fmt.Sprintf(str1, state)
+		} else if c != d && p == d {
+			state = fmt.Sprintf(str2, state)
+		}
 		bs += state
 		if (i + 1) % 8 == 0 { bs += " " }
 		if (i + 1) % 16 == 0 { bs += " " }
 		qword <<= 1
-		originalQword <<= 1
+		presetQword <<= 1
+		defaultQword <<= 1
 	}
 	return string(bs)
 }
@@ -850,8 +909,10 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 		if clock != PHI2 {
 			return "Program counter high can only be loaded on phi-2", false
 		}
-	case CL_CLK1, CL_CLK2:
-		return "Clock lines cannot be changed", false
+	case CL_FSCA, CL_FSCB, CL_FSNA, CL_FSNB, CL_FSVA, CL_FSVB:
+		if clock != PHI2 {
+			return "Flag updates can only be performed on phase 2", false
+		}
 	}
 	return "Ok", true
 }

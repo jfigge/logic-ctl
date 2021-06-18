@@ -103,12 +103,14 @@ func (s *Serial) Disconnect() bool {
 	s.log.Info("Port closed")
 	return true
 }
-func (s *Serial) Reconnect() {
+func (s *Serial) Reconnect() bool {
 	s.Connect(true)
 	if s.IsConnected() {
 		s.SetDirty(true)
 		s.tick(true)
+		return true
 	}
+	return false
 }
 func (s *Serial) IsConnected() bool {
 	return s.port != nil
