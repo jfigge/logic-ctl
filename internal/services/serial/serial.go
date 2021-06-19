@@ -33,7 +33,8 @@ type Serial struct {
 	dirty      bool
 	initialize bool
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8)) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(),
+	setStatus  func(uint8)) *Serial {
 	s := &Serial{
 		clock:     clock,
 		irq:       irq,
@@ -199,7 +200,8 @@ func (s *Serial) ReadData() (uint8, bool) {
 	// Receive data
 	select {
 	case b := <-s.data:
-		return b, true
+		e := <-s.data
+		return b, e == 0
 	case <- time.After(10 * time.Second):
 		s.log.Warnf("Data not received")
 		return 0, false
@@ -247,7 +249,10 @@ func (s *Serial) SetData(data uint8) bool {
 		s.log.Errorf("Unexpected number of bytes sent.  Expected 3, sent: %d", n)
 		return false
 	}
-	return true
+
+	// Read response
+	e := <-s.data
+	return e == 0
 }
 func (s *Serial) SetLines(data uint64) bool {
 	s.sync.Lock()
@@ -261,7 +266,6 @@ func (s *Serial) SetLines(data uint64) bool {
 	// Send command
 	bs := []byte{'L', uint8(data >> 40), uint8(data >> 32), uint8(data >> 24), uint8(data >> 16), uint8(data >> 8), uint8(data), 0x0A}
 	s.log.Debugf("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
-
 	if n, err := s.port.Write(bs); err != nil {
 		s.log.Errorf("Failed to send request to set lines: %v", err)
 		return false
@@ -295,12 +299,15 @@ func (s *Serial) driver() {
 	for  !s.terminated {
 		b := <- s.buffer
 		if b != byte(0) {
-			s.log.Debugf("Inbound data: %s", string(b))
+			s.log.Tracef("Inbound data: %s", string(b))
 			switch b {
 			case 'a':
 				s.address <- []byte{<-s.buffer, <-s.buffer}
 			case 'd':
-				s.data <- <-s.buffer
+				s.data <- <-s.buffer  // data
+				s.data <- <-s.buffer  // error code
+			case 'D':
+				s.data <- <-s.buffer  // error code
 			case 'o':
 				s.opCode <- <-s.buffer
 			case 's':

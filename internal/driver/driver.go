@@ -16,6 +16,7 @@ import (
 )
 
 type Driver struct {
+	instrAddr    uint16
 	address      uint16
 	lines        uint64
 	opCode       *instructionSet.OpCode
@@ -51,21 +52,21 @@ func New() *Driver {
 		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
-	d.ignoreFlags = true
-	d.UIs        = append(d.UIs, &d)
-	d.errorPage  = NewErrorPage()
-	d.helpPage   = NewHelpPage()
-	d.log        = logging.New(d.redraw)
-	d.status     = status.NewStatus(d.log)
-	d.opCodes    = instructionSet.New(d.log)
-	d.clock      = status.NewClock(d.log, d.tick)
-	d.irq        = status.NewIrq(d.log, d.redraw)
-	d.nmi        = status.NewNmi(d.log, d.redraw)
-	d.reset      = status.NewReset(d.log, d.redraw)
-	d.codes      = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial     = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus)
-	d.memory     = memory.New(d.log, d.opCodes)
-
+	d.ignoreFlags  = true
+	d.UIs          = append(d.UIs, &d)
+	d.errorPage    = NewErrorPage()
+	d.helpPage     = NewHelpPage()
+	d.log          = logging.New(d.redraw)
+	d.status       = status.NewStatus(d.log)
+	d.opCodes      = instructionSet.New(d.log)
+	d.clock        = status.NewClock(d.log, d.tick)
+	d.irq          = status.NewIrq(d.log, d.redraw)
+	d.nmi          = status.NewNmi(d.log, d.redraw)
+	d.reset        = status.NewReset(d.log, d.redraw)
+	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus)
+	d.memory       = memory.New(d.log, d.opCodes)
+	d.instrAddr = 0
 	d.keyIntercept = append(d.keyIntercept, d.codes)
 	return &d
 }
@@ -233,6 +234,29 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		d.serial.SetLines(d.opCode.Lines[flags][step][clock])
 	}
 }
+func (d *Driver) processDataLines(writeEnabled bool) {
+	if writeEnabled {
+		if b, ok := d.serial.ReadData(); ok {
+			if ok := d.memory.WriteMemory(d.address, b); !ok {
+				d.log.Warn("Debugger failed to write data to memory")
+			} else {
+				d.log.Infof("CPU wrote %s to %s", display.HexData(b), display.HexAddress(d.address))
+			}
+		} else {
+			d.log.Warn("FDebugger failed to read data")
+		}
+	} else {
+		if b, ok := d.memory.ReadMemory(d.address); ok {
+			if ok = d.serial.SetData(b); !ok {
+				d.log.Warn("Debugger failed to set data")
+			} else {
+				d.log.Infof("CPU read %s from %s", display.HexData(b), display.HexAddress(d.address))
+			}
+		} else {
+			d.log.Warn("Debugger failed to read data from memory")
+		}
+	}
+}
 
 func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
@@ -282,7 +306,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// Instructions
 	t.PrintAtf(58, 7, "%sInstructions", common.Yellow)
-	lines = d.memory.InstructionBlock(d.address)
+	lines = d.memory.InstructionBlock(d.instrAddr)
 	for i := 0; i < 11; i++ {
 		t.PrintAt(55, 8+i, lines[uint16(i)])
 	}
@@ -348,9 +372,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(87, 14, "%sB: %s%s%s", common.Yellow, common.White, AluOperations[1], display.ClearEnd)
 	t.PrintAtf(87, 15, "%sA: %s%s%s", common.Yellow, common.White, AluOperations[0], display.ClearEnd)
 	t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
-	if AluOperations[3] != "" {
-		t.PrintAtf(85, 17, "%sDir: %s%s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
-	}
+	t.PrintAtf(85, 17, "%sDir: %s%-10s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
 
 	d.display.ShowCursor()
 
@@ -421,24 +443,27 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 
 func tickFunc(d *Driver, phaseChange bool) {
 
-	preState   := d.clock.CurrentState()
-	//preAddress := d.address
-	//preOpCode  := d.opCode.OpCode
+	if state,   ok := d.serial.ReadStatus();  ok { d.status.SetStatus(state)} else { return }
+	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address)} else { return }
+	if opCode,  ok := d.serial.ReadOpCode();  ok { d.SetOpCode(opCode)} else { return }
 
-	if phaseChange && (d.lines & instructionSet.CL_DBRW == 0 && preState == instructionSet.PHI2) {
-		if b, ok := d.serial.ReadData(); ok {
-			d.memory.WriteMemory(d.address, b)
-		} else {
-			d.log.Warnf("Failed to write data %s to address: %s", display.HexData(b), display.HexAddress(d.address))
+	if d.ready {
+		preState := d.clock.CurrentState()
+		preStep := d.status.CurrentStep()
+		preFlags := uint8(0)
+		if !d.ignoreFlags {
+			preFlags = d.status.CurrentFlags()
+		}
+		preLines := d.opCode.Lines[preFlags][preStep][preState]
+		if phaseChange && preState == instructionSet.PHI2 {
+			d.processDataLines(preLines&instructionSet.CL_DBRW == 0)
+			d.reinitialize()
 		}
 	}
 
-	postState, ok := d.serial.ReadStatus()
-	if ok { d.status.SetStatus(postState)} else { return }
-	postAddress, ok := d.serial.ReadAddress()
-	if ok { d.SetAddress(postAddress) } else { return }
-	postOpCode, ok := d.serial.ReadOpCode()
-	if ok { d.SetOpCode(postOpCode) } else { return }
+	if d.status.CurrentStep() == d.opCode.Steps - 1 && d.clock.CurrentState() == instructionSet.PHI2 {
+		d.instrAddr = d.address
+	}
 
 	flags := uint8(0)
 	if !d.ignoreFlags {
@@ -448,12 +473,5 @@ func tickFunc(d *Driver, phaseChange bool) {
 	d.lines = d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()]
 	d.serial.SetLines(d.lines)
 
-	if phaseChange && (d.lines & instructionSet.CL_DBRW != 0 && d.clock.CurrentState() == instructionSet.PHI2) {
-		if b, ok := d.memory.ReadMemory(d.address); ok {
-			d.serial.SetData(b)
-		} else {
-			d.log.Warnf("Failed to read memory at address: %s", display.HexAddress(d.address))
-		}
-	}
 	d.redraw()
 }

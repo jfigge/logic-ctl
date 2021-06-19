@@ -89,6 +89,14 @@ func (l *Log) SetDebug(enabled bool) {
 	}
 }
 
+func (l *Log) Tracef(text string, a...interface{}) {
+	l.Trace(fmt.Sprintf(text, a...))
+}
+func (l *Log) Trace(text string) {
+	if l.debug {
+		l.history.add(fmt.Sprintf("%s%s%s", common.White, text, common.Reset))
+	}
+}
 func (l *Log) Debugf(text string, a...interface{}) {
 	l.Debug(fmt.Sprintf(text, a...))
 }

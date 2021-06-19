@@ -687,8 +687,8 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 		oc.Lines[flags][2][PHI2] ^= CL_DBD0 | CL_DBD1
 		oc.Lines[flags][3][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD2
 		oc.Lines[flags][3][PHI2] ^= CL_DBD2
-		oc.Lines[flags][4][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_AULA | CL_ALLD | CL_AHLD | CL_SPLD | CL_AUSA
-		oc.Lines[flags][4][PHI2] ^= CL_AULB
+		oc.Lines[flags][4][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_AULA | CL_ALLD | CL_AHLD | CL_SPLD | CL_AUSA | CL_AULB
+		oc.Lines[flags][4][PHI2] ^= 0
 		oc.Lines[flags][5][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_ALLD
 		oc.Lines[flags][5][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_PCLL | CL_PCLH
 		oc.Lines[flags][6][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
@@ -882,38 +882,39 @@ func (op *OpCode) uint64ToBinary(qword uint64, presetQword uint64, defaultQword 
 	return string(bs)
 }
 func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bool) {
-	// Validation on which bits can be set when.
-	switch uint64(1 << bit) {
-	case CL_CTMR:
-		return "Timer reset cannot be changed", false
-	case CL_DBRW:
-		if clock != PHI2 {
-			return "Data write can only be activated on Phi-2", false
-		}
-	case CL_ALLD:
-		if clock != PHI1 {
-			return "Address bus low can only be loaded on phi-1", false
-		}
-	case CL_AHLD:
-		if clock != PHI1 {
-			return "Address bus high can only be loaded on phi-1", false
-		}
-	case CL_PCIN:
-		if clock != PHI2 {
-			return "Program counter can only be incremented on phi-2", false
-		}
-	case CL_PCLL:
-		if clock != PHI2 {
-			return "Program counter low can only be loaded on phi-2", false
-		}
-	case CL_PCLH:
-		if clock != PHI2 {
-			return "Program counter high can only be loaded on phi-2", false
-		}
-	case CL_FSCA, CL_FSCB, CL_FSNA, CL_FSNB, CL_FSVA, CL_FSVB:
-		if clock != PHI2 {
-			return "Flag updates can only be performed on phase 2", false
-		}
-	}
-	return "Ok", true
+	return "ok", true
+	//// Validation on which bits can be set when.
+	//switch uint64(1 << bit) {
+	//case CL_CTMR:
+	//	return "Timer reset cannot be changed", false
+	//case CL_DBRW:
+	//	if clock != PHI2 {
+	//		return "Data write can only be activated on Phi-2", false
+	//	}
+	//case CL_ALLD:
+	//	if clock != PHI1 {
+	//		return "Address bus low can only be loaded on phi-1", false
+	//	}
+	//case CL_AHLD:
+	//	if clock != PHI1 {
+	//		return "Address bus high can only be loaded on phi-1", false
+	//	}
+	//case CL_PCIN:
+	//	if clock != PHI2 {
+	//		return "Program counter can only be incremented on phi-2", false
+	//	}
+	//case CL_PCLL:
+	//	if clock != PHI2 {
+	//		return "Program counter low can only be loaded on phi-2", false
+	//	}
+	//case CL_PCLH:
+	//	if clock != PHI2 {
+	//		return "Program counter high can only be loaded on phi-2", false
+	//	}
+	//case CL_FSCA, CL_FSCB, CL_FSNA, CL_FSNB, CL_FSVA, CL_FSVB:
+	//	if clock != PHI2 {
+	//		return "Flag updates can only be performed on phase 2", false
+	//	}
+	//}
+	//return "Ok", true
 }
