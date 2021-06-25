@@ -230,8 +230,9 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 	}
 
 	if step == d.status.CurrentStep() &&
-	   clock == d.clock.CurrentState() {
-		d.serial.SetLines(d.opCode.Lines[flags][step][clock])
+	   clock == d.clock.CurrentState() &&
+	   d.serial.IsConnected() {
+	 	d.serial.SetLines(d.opCode.Lines[flags][step][clock])
 	}
 }
 func (d *Driver) processDataLines(writeEnabled bool) {
@@ -301,7 +302,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	t.PrintAt(55, 2, d.status.FlagsBlock())
 
 	// Timing
-	t.PrintAtf(61, 4, "Step%s", common.Yellow)
+	t.PrintAtf(61, 4, "%sStep", common.Yellow)
 	t.PrintAt(55, 5, d.status.StepBlock())
 
 	// Instructions
