@@ -228,7 +228,7 @@ func (s *Serial) ReadStatus() (uint8, bool) {
 		case b := <-s.status:
 			return b, true
 		case <- time.After(10 * time.Second):
-			s.log.Warnf("Status not received")
+			s.log.Warnf("Flags not received")
 			return 0, false
 	}
 }

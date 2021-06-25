@@ -672,13 +672,6 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	setDefaultLines(oc)
 
 	for flags := 0; flags < 16; flags++ {
-		//oc.Lines[flags][0][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSB | CL_FLGC
-		//oc.Lines[flags][0][PHI2] ^= CL_FLGC | CL_DBD2
-		//oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
-		//oc.Lines[flags][1][PHI2] ^= CL_FLGC | CL_DBD1 | CL_DBD2
-		//oc.Lines[flags][2][PHI1] ^= CL_AULA | CL_SPLD | CL_AUSA | CL_SBD2
-		//oc.Lines[flags][2][PHI2] ^= 0
-
 		oc.Lines[flags][0][PHI1] ^= 0
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSB
@@ -726,6 +719,13 @@ func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	oc.PageCross = true
 	oc.BranchBit = bit
 	oc.BranchSet = value
+	setDefaultLines(oc)
+
+	for flags := 0; flags < 16; flags++ {
+		oc.Lines[flags][0][PHI1] ^= 0
+		oc.Lines[flags][0][PHI1] ^= CL_PCIN
+
+	}
 	return oc
 }
 func ups(name string, opcode uint8, bit uint8, value bool) *OpCode {

@@ -32,7 +32,8 @@ type Driver struct {
 	errorPage    *ErrorPage
 	helpPage     *HelpPage
 	memory       *memory.Memory
-	status       *status.Status
+	step         *status.Steps
+	flags        *status.Flags
 	ready        bool
 	UIs          []common.UI
 	dirty        bool
@@ -57,14 +58,15 @@ func New() *Driver {
 	d.errorPage    = NewErrorPage()
 	d.helpPage     = NewHelpPage()
 	d.log          = logging.New(d.redraw)
-	d.status       = status.NewStatus(d.log)
+	d.step         = status.NewSteps(d.log)
+	d.flags        = status.NewFlags(d.log)
 	d.opCodes      = instructionSet.New(d.log)
 	d.clock        = status.NewClock(d.log, d.tick)
 	d.irq          = status.NewIrq(d.log, d.redraw)
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
 	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.status.SetStatus)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetStatus)
 	d.memory       = memory.New(d.log, d.opCodes)
 	d.instrAddr = 0
 	d.keyIntercept = append(d.keyIntercept, d.codes)
@@ -80,7 +82,8 @@ func (d *Driver) Run() {
 	if d.serial.Connect(false) {
 		tickFunc(d, false)
 	} else {
-		d.status.SetStatus(0)
+		d.flags.SetStatus(0)
+		d.step.SetStatus(0)
 		d.SetAddress(0)
 		d.SetOpCode(0x02)
 	}
@@ -206,7 +209,7 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
 	flags := uint8(0)
 	if !d.ignoreFlags {
-		flags = d.status.CurrentFlags()
+		flags = d.flags.CurrentFlags()
 	}
 
 	if value != 99 {
@@ -229,7 +232,7 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		d.redraw()
 	}
 
-	if step == d.status.CurrentStep() &&
+	if step == d.step.CurrentStep() &&
 	   clock == d.clock.CurrentState() &&
 	   d.serial.IsConnected() {
 	 	d.serial.SetLines(d.opCode.Lines[flags][step][clock])
@@ -299,11 +302,11 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// FLags
 	t.PrintAtf(61, 1, "%sFlags", common.Yellow)
-	t.PrintAt(55, 2, d.status.FlagsBlock())
+	t.PrintAt(55, 2, d.flags.FlagsBlock())
 
 	// Timing
 	t.PrintAtf(61, 4, "%sStep", common.Yellow)
-	t.PrintAt(55, 5, d.status.StepBlock())
+	t.PrintAt(55, 5, d.step.StepBlock())
 
 	// Instructions
 	t.PrintAtf(58, 7, "%sInstructions", common.Yellow)
@@ -331,7 +334,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	var AluOperations[4]string
 	flags := uint8(0)
 	if !d.ignoreFlags {
-		flags = d.status.CurrentFlags()
+		flags = d.flags.CurrentFlags()
 	}
 	if d.ignoreFlags {
 		t.PrintAtf(1, 20, "%sControl Lines (Ignoring flags)", common.Yellow)
@@ -339,7 +342,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 		t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
 	}
 
-	lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.status.CurrentStep(), d.clock.CurrentState(),
+	lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.step.CurrentStep(), d.clock.CurrentState(),
 		(d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
 	for i := 0; i < len(lines); i++ {
 		t.PrintAt(1, 21+i, lines[i])
@@ -444,16 +447,19 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 
 func tickFunc(d *Driver, phaseChange bool) {
 
-	if state,   ok := d.serial.ReadStatus();  ok { d.status.SetStatus(state)} else { return }
+	if state,   ok := d.serial.ReadStatus();  ok {
+		d.step.SetStatus(state)
+		d.flags.SetStatus(state)
+	} else { return }
 	if address, ok := d.serial.ReadAddress(); ok { d.SetAddress(address)} else { return }
 	if opCode,  ok := d.serial.ReadOpCode();  ok { d.SetOpCode(opCode)} else { return }
 
 	if d.ready {
 		preState := d.clock.CurrentState()
-		preStep := d.status.CurrentStep()
+		preStep := d.step.CurrentStep()
 		preFlags := uint8(0)
 		if !d.ignoreFlags {
-			preFlags = d.status.CurrentFlags()
+			preFlags = d.flags.CurrentFlags()
 		}
 		preLines := d.opCode.Lines[preFlags][preStep][preState]
 		if phaseChange && preState == instructionSet.PHI2 {
@@ -462,16 +468,16 @@ func tickFunc(d *Driver, phaseChange bool) {
 		}
 	}
 
-	if d.status.CurrentStep() == d.opCode.Steps - 1 && d.clock.CurrentState() == instructionSet.PHI2 {
+	if d.step.CurrentStep() == d.opCode.Steps - 1 && d.clock.CurrentState() == instructionSet.PHI2 {
 		d.instrAddr = d.address
 	}
 
 	flags := uint8(0)
 	if !d.ignoreFlags {
-		flags = d.status.CurrentFlags()
+		flags = d.flags.CurrentFlags()
 	}
-	d.codes.SetEditStep(d.status.CurrentStep() * 2 + d.clock.CurrentState() + 1)
-	d.lines = d.opCode.Lines[flags][d.status.CurrentStep()][d.clock.CurrentState()]
+	d.codes.SetEditStep(d.step.CurrentStep() * 2 + d.clock.CurrentState() + 1)
+	d.lines = d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
 	d.serial.SetLines(d.lines)
 
 	d.redraw()
