@@ -16,7 +16,7 @@ func NewSteps(log *logging.Log) *Steps {
 	}
 }
 
-func (s *Steps) SetStatus(status uint8) {
+func (s *Steps) SetStep(status uint8) {
 	s.step = status & 7
 }
 func (s *Steps) CurrentStep() uint8 {

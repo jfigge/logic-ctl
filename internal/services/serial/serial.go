@@ -15,34 +15,34 @@ import (
 )
 
 type Serial struct {
-	sync 	   sync.Mutex
-	port       srl.Port
-	buffer     chan byte
-	address    chan []byte
-	opCode     chan byte
-	data       chan byte
-	status     chan byte
-	terminated bool
-	clock      *status.Clock
-	irq        *status.Irq
-	nmi        *status.Nmi
-	reset      *status.Reset
-	log        *logging.Log
-	setDirty   func()
-	setStatus  func(uint8)
-	dirty      bool
-	initialize bool
+	sync 	     sync.Mutex
+	port         srl.Port
+	buffer       chan byte
+	address      chan []byte
+	opCode       chan byte
+	data         chan byte
+	status       chan byte
+	terminated   bool
+	clock        *status.Clock
+	irq          *status.Irq
+	nmi          *status.Nmi
+	reset        *status.Reset
+	log          *logging.Log
+	setDirty     func()
+	setStatus    func(uint8)
+	dirty        bool
+	initialize   bool
 }
 func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(),
 	setStatus  func(uint8)) *Serial {
 	s := &Serial{
-		clock:     clock,
-		irq:       irq,
-		nmi:       nmi,
-		reset:     reset,
-		log:       log,
-		setDirty:  setDirty,
-		setStatus: setStatus,
+		clock:        clock,
+		irq:          irq,
+		nmi:          nmi,
+		reset:        reset,
+		log:          log,
+		setDirty:     setDirty,
+		setStatus:    setStatus,
 	}
 	return s
 }
@@ -256,7 +256,9 @@ func (s *Serial) SetData(data uint8) bool {
 }
 func (s *Serial) SetLines(data uint64) bool {
 	s.sync.Lock()
-	defer s.sync.Unlock()
+	defer func() {
+		s.sync.Unlock()
+	}()
 	if s.port == nil {
 		if ok := s.Connect(true); !ok {
 			return false
@@ -314,15 +316,7 @@ func (s *Serial) driver() {
 				s.status <- <-s.buffer
 			case 'c':
 				s.clock.ClockLow()
-				s.setDirty()
 			case 'C':
-				s.clock.ClockHigh()
-				s.setDirty()
-			case 'k':
-				s.setStatus(<-s.buffer)
-				s.clock.ClockLow()
-			case 'K':
-				s.setStatus(<-s.buffer)
 				s.clock.ClockHigh()
 			case 'i':
 				s.irq.IrqLow()

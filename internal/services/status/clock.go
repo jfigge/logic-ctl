@@ -31,7 +31,6 @@ func (c *Clock) ClockLow() {
 	c.state = 0
 	c.tick()
 }
-
 func (c *Clock) CurrentState() uint8 {
 	return c.state
 }

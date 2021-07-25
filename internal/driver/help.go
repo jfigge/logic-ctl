@@ -24,7 +24,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 		h.initialize = false
 	}
 
-	t.PrintAtf( 1, 1, "%sDatabase%s", common.Yellow, common.Reset)
+	t.PrintAtf( 1, 1, "%sData Bus%s", common.Yellow, common.Reset)
 	t.PrintAtf( 1, 2, "%s1%s Accumulator%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf( 1, 3, "%s2%s Processor Status%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf( 1, 4, "%s3%s Special Bus%s", common.Yellow, common.White, common.Reset)

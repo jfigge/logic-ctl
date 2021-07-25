@@ -23,7 +23,7 @@ func NewFlags(log *logging.Log) *Flags {
 	}
 }
 
-func (f *Flags) SetStatus(status uint8) {
+func (f *Flags) SetFlags(status uint8) {
 	f.flags = status
 	f.currentFlags = (status & 192) >> 4 | (status & 24) >> 3
 }

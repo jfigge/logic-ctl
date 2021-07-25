@@ -12,12 +12,12 @@ const (
 ) // Clock stages
 const (
 	CL_CENB = 1 << iota // Carry enable
-	CL_FSNA // Flag select NZI-A (0=Reg/Manual(i), 1=Reg/Bus)
+	CL_FSIA // Flag select NZI-A (0=Reg/Manual(i), 1=Reg/Bus)
 	CL_FMAN // Flag manual setting (0=Off, 1=On)
 	CL_FSCA // Flag select C-A (0=Reg/Manual, 1=CPU/Bus)
 	CL_FSCB // Flag select C-B (0=first, 1=second)
 	CL_FSVB // Flag select V-B (0=first, 1=second)
-	CL_FSNB // Flag select NZI-B (0=first, 1=second)
+	CL_FSIB // Flag select NZI-B (0=first, 1=second)
 	CL_FSVA // Flag select V-A (0=Reg/Manual, 1=CPU/Bus)
 
 	CL_SBD2 // Special Bus driver 4-bit
@@ -36,7 +36,7 @@ const (
 	CL_AUSB // ALU Load B Selector (0=DB, 1=ADL)
 	CL_AUIB // ALU Load Invert data bus
 	CL_PAUS // Set clock manual step mode
-	CL_HALT // Stop clock until reset
+	CL_AULA // ALU Input A Load
 
 	CL_AULB // ALU Input B Load
 	CL_CRST // Clear reset
@@ -50,7 +50,7 @@ const (
 	CL_PCLH // Load program counter from ADH
 	CL_PCLL // Load program counter from ADL
 	CL_PCIN // Increment program counter
-	CL_AULA // ALU Input A Load
+	CL_UNU1 // Unused #1
 	CL_DBRW // Data bus Read/Write (0=Write, 1=Read)
 	CL_ALD2 // Address low driver 4-bit
 	CL_ALD1 // Address low driver 2-bit
@@ -102,11 +102,11 @@ const (
 var (
 	mnemonics = [][]string{
 		/* EPROM 1a */ {"TRST", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
-		/* EPROM 1b */ {"ALD0", ""}, {"ALD1", ""}, {"ALD2", ""}, {"DBRW", ""}, {"AULA", "CIOV"}, {"PCIN", ""}, {"PCLL", ""}, {"PCLH", ""},
+		/* EPROM 1b */ {"ALD0", ""}, {"ALD1", ""}, {"ALD2", ""}, {"DBRW", ""}, {"UNU1", "CIOV"}, {"PCIN", ""}, {"PCLL", ""}, {"PCLH", ""},
 		/* EPROM 2a */ {"ALLD", ""}, {"AHLD", ""}, {"SPLD", ""}, {"ALC2", ""}, {"ALC1", ""},     {"ALC0", ""}, {"CRST", ""}, {"AULB", ""},
-		/* EPROM 2b */ {"HALT", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO1", ""}, {"AUO2", ""}, {"AUS1", ""},
+		/* EPROM 2b */ {"AULA", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO1", ""}, {"AUO2", ""}, {"AUS1", ""},
 		/* EPROM 3a */ {"AUS2", ""}, {"AULR", ""}, {"SBLA", ""}, {"SBLY", ""}, {"SBLX", ""},     {"SBD0", ""}, {"SBD1", ""}, {"SBD2", ""},
-		/* EPROM 3b */ {"FSVA", ""}, {"FSNB", ""}, {"FSVB", ""}, {"FSCB", ""}, {"FSCA", ""},     {"FMAN", ""}, {"FSNA", ""}, {"CENB", ""},
+		/* EPROM 3b */ {"FSVA", ""}, {"FSIB", ""}, {"FSVB", ""}, {"FSCB", ""}, {"FSCA", ""},     {"FMAN", ""}, {"FSIA", ""}, {"CENB", ""},
 	}
 	lineDescriptions = [][]string{
 		// EPROM 1a
@@ -123,7 +123,7 @@ var (
 		{"Address Low driver 2-bit",""},
 		{"Address Low driver 4-bit",""},
 		{"Data bus Read/Write (0=Write, 1=Read)",""},
-		{"ALU Input A Load","Carry-in override (0=off, 1=on)"},
+		{"Unused #1", ""},
 		{"Increment program counter",""},
 		{"Load program counter from ADL",""},
 		{"Load program counter from ADH",""},
@@ -137,7 +137,7 @@ var (
 		{"Clear Reset",""},
 		{"ALU Input B Load",""},
 		// EPROM 2b
-		{"Stop clock until reset",""},
+		{"ALU Input A Load","Carry-in override (0=off, 1=on)"},
 		{"Set clock manual step mode",""},
 		{"ALU Load Invert data bus",""},
 		{"ALU Load B Selector (0=DB, 1=ADL)",""},
@@ -165,10 +165,10 @@ var (
 		{"Enable carry-in for ALU",""},
 	}
 
-	x = uint64(CL_CTMR | CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
-		CL_HALT | CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 | CL_AULA | CL_AULB |
+	x = uint64(CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
+		CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 | CL_AULA | CL_AULB |
 		CL_AUS2 | CL_SBD2 | CL_SBD1 | CL_SBD0 | CL_SBLX | CL_SBLY | CL_SBLA)
-	defaults = [2]uint64 {x, x ^ CL_CIOV }
+	Defaults = [2]uint64 {x, x ^ CL_CIOV }
 
 	OutputsDB  = map[uint64]string {
 		0:                           "None (1)",

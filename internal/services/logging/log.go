@@ -54,7 +54,7 @@ func (l *Log) Progress(text string, percent int) {
 }
 func (l *Log) Notify(text string, colour string) {
 
-	str := fmt.Sprintf("%s%s%s%s", display.ClearLine, colour, text, common.Reset)
+	str := fmt.Sprintf("%s%s%s%s%s", display.ClearLine, colour, text, common.Reset, display.ClearEnd)
 	l.history.add(str)
 
 	l.sync.Lock()
@@ -94,7 +94,7 @@ func (l *Log) Tracef(text string, a...interface{}) {
 }
 func (l *Log) Trace(text string) {
 	if l.debug {
-		l.history.add(fmt.Sprintf("%s%s%s", common.White, text, common.Reset))
+		l.history.add(fmt.Sprintf("%s%s%s%s", common.White, text, common.Reset, display.ClearEnd))
 	}
 }
 func (l *Log) Debugf(text string, a...interface{}) {
@@ -104,7 +104,7 @@ func (l *Log) Debug(text string) {
 	if l.debug {
 		l.Notify(text, common.White)
 	} else {
-		l.history.add(fmt.Sprintf("%s%s%s", common.White, text, common.Reset))
+		l.history.add(fmt.Sprintf("%s%s%s%s", common.White, text, common.Reset, display.ClearEnd))
 	}
 }
 func (l *Log) Infof(text string, a...interface{}) {
