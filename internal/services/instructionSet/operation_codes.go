@@ -609,13 +609,13 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// STA (STore Accumulator)
 		// Affects Flags: none
-		0x85 : str(mop(ZPG, "STA", "$44",     0x85, 2, 3, false)),
-		0x95 : str(mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false)),
-		0x8D : str(mop(ABS, "STA", "$4400",   0x8D, 3, 4, false)),
-		0x9D : str(mop(ABX, "STA", "$4400,X", 0x9D, 3, 5, false)),
-		0x99 : str(mop(ABY, "STA", "$4400,Y", 0x99, 3, 5, false)),
-		0x81 : str(mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false)),
-		0x91 : str(mop(IZY, "STA", "($44),Y", 0x91, 2, 6, false)),
+		0x85 : str(mop(ZPG, "STA", "$44",     0x85, 2, 3, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x95 : str(mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x8D : str(mop(ABS, "STA", "$4400",   0x8D, 3, 4, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x9D : str(mop(ABX, "STA", "$4400,X", 0x9D, 3, 5, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x99 : str(mop(ABY, "STA", "$4400,Y", 0x99, 3, 5, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x81 : str(mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x91 : str(mop(IZY, "STA", "($44),Y", 0x91, 2, 6, false), CL_DBD0 | CL_DBD1 | CL_DBD2),
 
 
 		// Stack Instructions
@@ -632,16 +632,16 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// STX (STore X register)
 		// Affects Flags: none
-		0x86 : mop(ZPG, "STX", "$44",   0x86, 2, 3, false),
-		0x96 : mop(ZPY, "STX", "$44,Y", 0x96, 2, 4, false),
-		0x8E : mop(ABS, "STX", "$4400", 0x8E, 3, 4, false),
+		0x86 : str(mop(ZPG, "STX", "$44",   0x86, 2, 3, false), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
+		0x96 : str(mop(ZPY, "STX", "$44,Y", 0x96, 2, 4, false), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
+		0x8E : str(mop(ABS, "STX", "$4400", 0x8E, 3, 4, false), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
 
 
 		// STY (STore Y register)
 		// Affects Flags: none
-		0x84 : mop(ZPG, "STY", "$44",   0x84, 2, 3, false),
-		0x94 : mop(ZPX, "STY", "$44,X", 0x94, 2, 4, false),
-		0x8C : mop(ABS, "STY", "$4400", 0x8C, 3, 4, false),
+		0x84 : str(mop(ZPG, "STY", "$44",   0x84, 2, 3, false), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
+		0x94 : str(mop(ZPX, "STY", "$44,X", 0x94, 2, 4, false), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
+		0x8C : str(mop(ABS, "STY", "$4400", 0x8C, 3, 4, false), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
 	}
 
 	for i := 0; i < 256; i++ {
@@ -666,7 +666,6 @@ func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	setDefaultLines(oc)
-	incrementPC(oc)
 	return oc
 }
 func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool) *OpCode {
@@ -682,9 +681,8 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	setDefaultLines(oc)
-	incrementPC(oc)
 
-	for flags := 0; flags < 16; flags++ {
+	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= 0
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN | CL_FSIB | CL_FSIB | CL_FMAN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSB
@@ -697,8 +695,6 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 		oc.Lines[flags][4][PHI2] ^= 0
 		oc.Lines[flags][5][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_ALLD
 		oc.Lines[flags][5][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_PCLL | CL_PCLH
-		oc.Lines[flags][6][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
-		oc.Lines[flags][6][PHI2] ^= 0
 
 		switch opcode {
 		case 0x00: // Break
@@ -727,6 +723,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
 			oc.Lines[flags][4][PHI1] ^= CL_ALC0
 		}
+		loadNextInstruction(oc, flags)
 	}
 	return oc
 }
@@ -798,7 +795,7 @@ func stk(name string, opcode uint8, timing uint8) *OpCode {
 	return oc
 }
 func lda(oc *OpCode) *OpCode {
-	for flags := 0; flags < 16; flags++ {
+	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
@@ -823,13 +820,12 @@ func lda(oc *OpCode) *OpCode {
 			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
 			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
 		}
-		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-		oc.Lines[flags][1][PHI2] ^= 0
+		loadNextInstruction(oc, flags)
 	}
 	return oc
 }
-func str(oc *OpCode) *OpCode {
-	for flags := 0; flags < 16; flags++ {
+func str(oc *OpCode, dbSource uint64) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
 		case ZPG:
@@ -837,9 +833,9 @@ func str(oc *OpCode) *OpCode {
 		case ABS:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSA
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
 			oc.Lines[flags][1][PHI2] ^= CL_PCIN
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= 0
 			oc.Lines[flags][3][PHI2] ^= 0
@@ -857,9 +853,7 @@ func str(oc *OpCode) *OpCode {
 			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
 			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
 		}
-
-		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
+		loadNextInstruction(oc, flags)
 	}
 	return oc
 }
@@ -882,10 +876,9 @@ func setDefaultLines(oc *OpCode) {
 		}
 	}
 }
-func incrementPC(oc *OpCode) {
-	for flags := 0; flags < 16; flags++ {
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
-	}
+func loadNextInstruction(oc *OpCode, flags uint8 ) {
+	oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
 }
 
 type OpCode struct {

@@ -335,7 +335,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	offset = len(lines)
 	lines = d.codes.LineNamesBlock((d.codes.EditStep() - 1) % 2)
 	for i, line := range lines {
-		t.PrintAt(9, 21 + offset + i, line)
+		t.PrintAt(1, 21 + offset + i, "        " + line)
 	}
 	offset = 20 + offset + len(lines)
 
