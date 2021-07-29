@@ -376,7 +376,7 @@ func (l *ControlLines) LineNamesBlock(clock uint8) []string {
 	if l.showBlock {
 		return l.lines
 	}
-	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.x - 1][clock], display.ClearEnd)}
+	return []string{ fmt.Sprintf("%-57s", lineDescriptions[l.cursor.x - 1][clock])}
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)

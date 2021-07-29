@@ -27,7 +27,7 @@ const (
 	// that enable this additional clock cycle. So each addressing function returns
 	// a flag saying it has potential, as does each instruction. If both instruction
 	// and address function return 1, then an additional clock cycle is required.
-	//
+
 	// IMM Address Mode: IMM,
 	// The instruction expects the next byte to be used as a value, so we'll prep
 	// the read address to point to the next byte
@@ -609,13 +609,13 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// STA (STore Accumulator)
 		// Affects Flags: none
-		0x85 : mop(ZPG, "STA", "$44",     0x85, 2, 3, false),
-		0x95 : mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false),
-		0x8D : mop(ABS, "STA", "$4400",   0x8D, 3, 4, false),
-		0x9D : mop(ABX, "STA", "$4400,X", 0x9D, 3, 5, false),
-		0x99 : mop(ABY, "STA", "$4400,Y", 0x99, 3, 5, false),
-		0x81 : mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false),
-		0x91 : mop(IZY, "STA", "($44),Y", 0x91, 2, 6, false),
+		0x85 : str(mop(ZPG, "STA", "$44",     0x85, 2, 3, false)),
+		0x95 : str(mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false)),
+		0x8D : str(mop(ABS, "STA", "$4400",   0x8D, 3, 4, false)),
+		0x9D : str(mop(ABX, "STA", "$4400,X", 0x9D, 3, 5, false)),
+		0x99 : str(mop(ABY, "STA", "$4400,Y", 0x99, 3, 5, false)),
+		0x81 : str(mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false)),
+		0x91 : str(mop(IZY, "STA", "($44),Y", 0x91, 2, 6, false)),
 
 
 		// Stack Instructions
@@ -662,6 +662,7 @@ func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.Operands  = length - 1
 	oc.Steps     = timing
 	oc.PageCross = pageCross
+	oc.Virtual   = false
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	setDefaultLines(oc)
@@ -677,6 +678,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.Operands  = length - 1
 	oc.Steps     = timing
 	oc.PageCross = pageCross
+	oc.Virtual   = opcode != 0
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	setDefaultLines(oc)
@@ -738,6 +740,7 @@ func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	oc.Operands  = 1
 	oc.Steps     = 2
 	oc.PageCross = true
+	oc.Virtual   = false
 	oc.BranchBit = bit
 	oc.BranchSet = value
 	setDefaultLines(oc)
@@ -759,6 +762,7 @@ func ups(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	oc.Operands  = 0
 	oc.Steps     = 2
 	oc.PageCross = false
+	oc.Virtual   = false
 	oc.BranchBit = bit
 	oc.BranchSet = value
 	return oc
@@ -773,6 +777,7 @@ func reg(name string, opcode uint8) *OpCode {
 	oc.Operands  = 0
 	oc.Steps     = 2
 	oc.PageCross = false
+	oc.Virtual   = false
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	return oc
@@ -787,12 +792,75 @@ func stk(name string, opcode uint8, timing uint8) *OpCode {
 	oc.Operands  = 0
 	oc.Steps     = timing
 	oc.PageCross = false
+	oc.Virtual   = false
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	return oc
 }
-
 func lda(oc *OpCode) *OpCode {
+	for flags := 0; flags < 16; flags++ {
+		switch oc.AddrMode {
+		case IMM:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AULA | CL_AULB | CL_SBD1 | CL_SBLA
+			oc.Lines[flags][1][PHI2] ^= 0
+
+		case ZPG:
+		case ZPX:
+		case ABS:
+		case ABX:
+		case ABY:
+		case IZX:
+		case IZY:
+
+			//0xA9 : lda(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false)),
+			//0xA5 : lda(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false)),
+			//0xB5 : lda(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false)),
+			//0xAD : lda(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false)),
+			//0xBD : lda(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true)),
+			//0xB9 : lda(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true)),
+			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
+			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
+		}
+		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+		oc.Lines[flags][1][PHI2] ^= 0
+	}
+	return oc
+}
+func str(oc *OpCode) *OpCode {
+	for flags := 0; flags < 16; flags++ {
+		switch oc.AddrMode {
+		case IMM:
+		case ZPG:
+		case ZPX:
+		case ABS:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI2] ^= CL_DBRW
+			oc.Lines[flags][3][PHI1] ^= 0
+			oc.Lines[flags][3][PHI2] ^= 0
+		case ABX:
+		case ABY:
+		case IZX:
+		case IZY:
+
+			//0xA9 : lda(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false)),
+			//0xA5 : lda(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false)),
+			//0xB5 : lda(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false)),
+			//0xAD : lda(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false)),
+			//0xBD : lda(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true)),
+			//0xB9 : lda(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true)),
+			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
+			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
+		}
+
+		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
+	}
 	return oc
 }
 
@@ -830,6 +898,7 @@ type OpCode struct {
 	PageCross bool             `json:"pageCross"`
 	BranchBit uint8            `json:"branchBit"`
 	BranchSet bool             `json:"branchSet"`
+	Virtual   bool             `json:"Virtual"`
 	Lines     [16][8][2]uint64 `json:"lines,omitempty"`
 	Presets   [16][8][2]uint64 `json:"presets,omitempty"`
 	// Flags, Timing, Clock 1/0
@@ -955,6 +1024,18 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 	case CL_FSCA, CL_FSCB, CL_FSIA, CL_FSIB, CL_FSVA, CL_FSVB:
 		if clock != PHI2 {
 			return "Flag updates can only be performed on phase 2", false
+		}
+	case CL_SBLA:
+		if clock != PHI1 {
+			return "Accumulator can only be loaded on phi-1", false
+		}
+	case CL_SBLX:
+		if clock != PHI1 {
+			return "X register can only be loaded on phi-1", false
+		}
+	case CL_SBLY:
+		if clock != PHI1 {
+			return "Y register can only be loaded on phi-1", false
 		}
 	}
 	return "Ok", true

@@ -55,7 +55,7 @@ func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
 		return true
 	}
 }
-func (m *Memory) disassemble(nStart, nStop uint16) map[uint16] string {
+func (m *Memory) disassemble(nStart, nStop uint16) map[uint16]string {
 	addr := uint32(nStart)
 	var value, lo, hi uint8 = 0, 0, 0
 
@@ -206,25 +206,30 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	return lines
 }
 func (m *Memory) InstructionBlock(address uint16) (lines []string) {
-	highlight := uint16(lineCount / 2)
-	i := int(address) - int(highlight)
-	if i < 0 {
-		highlight = uint16(int(highlight) + i)
-		i = 0
+
+	totalLines := lineCount
+	if totalLines > len(m.disassembly) {
+		totalLines = len(m.disassembly)
 	}
 
-	memSize :=len(m.memory)
-	for len(lines) < lineCount {
-		if i > memSize || i < 0 {
-			lines = append(lines, "")
-		} else if m.disassembly[uint16(i)] > "" {
-			if len(lines) == int(highlight) {
-				lines = append(lines, common.BrightMagenta+m.disassembly[uint16(i)]+common.Reset)
-			} else {
-				lines = append(lines, common.Magenta+m.disassembly[uint16(i)]+common.Reset)
+	addrBefore := address
+	addrAfter  := address
+	lines = append(lines, common.BrightMagenta+m.disassembly[address]+common.Reset)
+
+	for len(lines) < totalLines {
+		addrBefore--
+		if addrBefore < address {
+			if line, ok := m.disassembly[addrBefore]; ok {
+				lines = append([]string{common.Magenta + line + common.Reset}, lines...)
 			}
 		}
-		i++
+
+		addrAfter++
+		if addrAfter > address {
+			if line, ok := m.disassembly[addrAfter]; ok {
+				lines = append(lines, common.Magenta+line+common.Reset)
+			}
+		}
 	}
 	return
 }

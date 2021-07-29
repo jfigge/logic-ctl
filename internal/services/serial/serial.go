@@ -154,6 +154,7 @@ func (s *Serial) ReadAddress() (uint16, bool) {
 
 	// Receive address
 	a := binary.LittleEndian.Uint16(<-s.address)
+	s.log.Tracef("Received address: %s", display.HexAddress(a))
 	return a, true
 }
 func (s *Serial) ReadOpCode() (uint8, bool) {
@@ -201,6 +202,7 @@ func (s *Serial) ReadData() (uint8, bool) {
 	select {
 	case b := <-s.data:
 		e := <-s.data
+		s.log.Tracef("Received data: %s", display.HexData(b))
 		return b, e == 0
 	case <- time.After(10 * time.Second):
 		s.log.Warnf("Data not received")

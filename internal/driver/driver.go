@@ -67,7 +67,7 @@ func New() *Driver {
 	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags)
 	d.memory       = memory.New(d.log, d.opCodes)
-	d.instrAddr = 0
+	d.instrAddr    = 0
 	d.keyIntercept = append(d.keyIntercept, d.codes)
 	return &d
 }
@@ -177,6 +177,9 @@ func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
 		d.codes.SetSteps(d.opCode.Steps)
+	}
+	if !d.opCode.Virtual {
+		d.instrAddr = d.address
 	}
 	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
 }
@@ -359,15 +362,20 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	// Notifications
 	lines = d.log.LogBlock()
 	max := d.display.Rows() - offset
+	cl := fmt.Sprintf("%-65s", " ")
 	if len(lines) > max {
 		lines = lines[:max]
 	}
 	for i := 0; i < max; i++ {
 		line := display.ClearLine
-		if i < len(lines) {
-			line = lines[i]
+		if i < d.display.Rows() - 5 {
+			d.display.PrintAt(1, d.display.Rows()-i, cl)
+		} else {
+			if i < len(lines) {
+				line = lines[i]
+			}
+			d.display.PrintAt(1, d.display.Rows()-i, line)
 		}
-		d.display.PrintAt(1, d.display.Rows() - i, line)
 	}
 
 	// Restore cursor position
@@ -418,6 +426,7 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 }
 
 func tickFunc(d *Driver, phaseChange bool) {
+
 	if state, ok := d.serial.ReadStatus();  ok {
 		d.step.SetStep(state)
 		d.flags.SetFlags(state)
@@ -440,6 +449,7 @@ func tickFunc(d *Driver, phaseChange bool) {
 	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
 	d.serial.SetLines(lines)
 
+	time.Sleep(5 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {
 		d.SetAddress(address)
 	}
