@@ -38,6 +38,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(21, 4, "%s2%s Constants%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21, 5, "%s3%s Stack pointer%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21, 6, "%s4%s ALU%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21, 7, "%s5%s PC Low Register%s", common.Yellow, common.White, common.Reset)
 
 	t.PrintAtf(41, 1, "%sAddress high bus%s", common.Yellow, common.Reset)
 	t.PrintAtf(41, 2, "%s0%s Input%s", common.Yellow, common.White, common.Reset)
@@ -55,17 +56,21 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(61, 8, "%s6%s Address high bus%s", common.Yellow, common.White, common.Reset)
 
 	t.PrintAtf( 1,10, "%sKey mappings%s", common.Yellow, common.Reset)
-	t.PrintAtf( 1,10, "%sd%s Debug disabled%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,10, "%sd%s Debug enabled%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21,10, "%sf%s Toggle flag usage%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,10, "%sh%s Show this page%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(61,10, "%sl%s Show log history%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(81,10, "%sq%s Quit%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf( 1,11, "%sD%s Debug enabled%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(21,11, "%sm%s Toggle mnemonics%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(41,11, "%sH%s Toggle line help%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(61,11, "%sp%s Show ports%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,10, "%sp%s Show ports%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,11, "%sD%s Debug disabled%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,11, "%sc%s Copies line codes%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(41,11, "%sl%s Show log history%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,11, "%sq%s Quit%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf(1, t.Rows(), "%s'Press any key to exit%s", common.Yellow, common.Reset)
+	t.PrintAtf( 1,13, "%s0%s Deactivate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,13, "%s1%s Activate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(41,13, "%sspace%s Toggle line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,13, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
+
+	t.PrintAtf(1, t.Rows(), "%sPress any key to exit%s", common.Yellow, common.Reset)
 	h.dirty = false
 }
 func (h *HelpPage) SetDirty(initialize bool) {

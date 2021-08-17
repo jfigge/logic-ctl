@@ -3,6 +3,7 @@ module github.td.teradata.com/sandbox/logic-ctl
 go 1.15
 
 require (
+	github.com/atotto/clipboard v0.1.4
 	github.com/pkg/term v1.1.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1

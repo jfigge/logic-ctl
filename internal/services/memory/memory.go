@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	read      = common.BrightBlue
+	read      = common.BrightYellow
 	written   = common.BrightRed
 	normal    = common.Blue
 	current   = common.BrightGreen
@@ -32,7 +32,7 @@ func New(log *logging.Log, opCodes *instructionSet.OperationCodes) *Memory {
 	}
 }
 
-func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
+func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress int) bool {
 	memSize := len(m.memory)
 	if bs, err := ioutil.ReadFile(filename); err != nil {
 		m.log.Errorf("Failed to read ROM: %s", err)
@@ -40,8 +40,8 @@ func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
 	} else {
 		percent := -1
 		for i := 0; i < memSize; i++ {
-			if i < len(bs) {
-				m.memory[i] = bs[i]
+			if i >= baseAddress && i - baseAddress < len(bs) {
+				m.memory[i] = bs[i - baseAddress]
 			} else {
 				m.memory[i] = 0
 			}
@@ -168,6 +168,10 @@ func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 	return m.memory[address], true
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
+	//if address < 0x6000 {
+	//	m.log.Errorf("Cannot write %s to ROM address %s", display.HexData(data), display.HexAddress(address))
+	//	return false
+	//}
 	m.memory[address] = data
 	m.lastAction = written
 	m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(m.memory[address]))

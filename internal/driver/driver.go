@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"github.com/atotto/clipboard"
 	"github.com/pkg/term"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/config"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
@@ -12,6 +13,7 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/serial"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -39,6 +41,9 @@ type Driver struct {
 	initialize   bool
 	keyIntercept []common.Intercept
 	ignoreFlags  bool
+	lines        uint64
+	writer       func()
+	quit         chan struct{}
 }
 func New() *Driver {
 	d := Driver{}
@@ -52,6 +57,7 @@ func New() *Driver {
 		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
+	d.lines        = instructionSet.Defaults[0]
 	d.ignoreFlags  = true
 	d.UIs          = append(d.UIs, &d)
 	d.errorPage    = NewErrorPage()
@@ -65,7 +71,7 @@ func New() *Driver {
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
 	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags, d.startDataCapture, d.stopDataCapture)
 	d.memory       = memory.New(d.log, d.opCodes)
 	d.instrAddr    = 0
 	d.keyIntercept = append(d.keyIntercept, d.codes)
@@ -74,7 +80,7 @@ func New() *Driver {
 
 func (d *Driver) Run() {
 	d.display.Cls()
-	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile) {
+	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x8000) {
 		d.log.Dump()
 		os.Exit(1)
 	}
@@ -204,13 +210,14 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		flags = d.flags.CurrentFlags()
 	}
 
+	mask := uint64(0)
 	if value != 99 {
 		if str, ok := d.opCode.ValidateLine(step, clock, bit); !ok {
 			d.log.Warn(str)
 			return
 		}
 
-		mask := uint64(1 << bit)
+		mask = uint64(1 << bit)
 		switch value {
 		case 0:
 			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] &^ mask
@@ -221,21 +228,70 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		case 3:
 			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] ^ mask
 		}
+
+		if mask == instructionSet.CL_DBRW {
+			if d.opCode.Lines[flags][step][clock] & mask == 0 {
+				d.opCode.Lines[flags][step][1-clock] = d.opCode.Lines[flags][step][1-clock] &^ mask
+			} else {
+				d.opCode.Lines[flags][step][1-clock] = d.opCode.Lines[flags][step][1-clock] | mask
+			}
+		}
+
+		d.lines = d.opCode.Lines[flags][step][clock]
 		d.redraw()
 	}
 
-	if step == d.step.CurrentStep() &&
-	   clock == d.clock.CurrentState() &&
+	 if step == d.step.CurrentStep() &&
+		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
 	   d.serial.IsConnected() {
-	 	d.serial.SetLines(d.opCode.Lines[flags][step][clock])
+	 	d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
 	}
 }
-func (d *Driver) setWriteMode(writeMode bool) {
-	d.log.Infof("SetWriteMode: %v", writeMode)
+
+func (d *Driver) startDataCapture() {
+	if d.quit == nil {
+		if d.clock.CurrentState() == instructionSet.PHI2 {
+			d.log.Info("Capture started")
+			d.quit = make(chan struct{})
+			go func(d *Driver, ticker *time.Ticker) {
+				for {
+					select {
+					case <-ticker.C:
+						address := d.address
+						if data, ok := d.serial.ReadData(); ok {
+							d.log.Infof("Capture writer(%s, %s)", display.HexAddress(address), display.HexData(data))
+							d.writer = func() {
+								if ok := d.memory.WriteMemory(address, data); !ok {
+									d.log.Warnf("Failed to write %s @ %s", display.HexAddress(address), display.HexData(data))
+								}
+							}
+						}
+					case <-d.quit:
+						d.log.Info("Capture stopped")
+						ticker.Stop()
+						d.quit = nil
+						return
+					}
+				}
+			}(d, time.NewTicker(200*time.Millisecond))
+		} else {
+			d.log.Info("Wrong phase to start capturing")
+		}
+	} else {
+		d.log.Info("Capture already running")
+	}
 }
-func (d *Driver) processDataLines(writeEnabled bool, phase uint8) {
-	d.log.Infof("ProcessDataLines. writeEnabled: %v. Phase: %v", writeEnabled, phase)
+
+func (d *Driver) stopDataCapture() {
+	if d.quit != nil {
+		close(d.quit)
+		if d.writer != nil {
+			d.writer()
+		}
+		d.quit = nil
+	}
 }
+
 
 func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
@@ -279,9 +335,13 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(61, 1, "%sFlags", common.Yellow)
 	t.PrintAt(55, 2, d.flags.FlagsBlock())
 
-	// Timing
+	// Step
 	t.PrintAtf(61, 4, "%sStep", common.Yellow)
-	t.PrintAt(55, 5, d.step.StepBlock())
+	steps := uint8(2)
+	if d.opCode != nil {
+		steps = d.opCode.Steps
+	}
+	t.PrintAt(55, 5, d.step.StepBlock(steps))
 
 	// Instructions
 	t.PrintAtf(58, 7, "%sInstructions", common.Yellow)
@@ -304,7 +364,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 		d.display.PrintAtf(1, 1, "%s%-3s%s", colour, d.opCode.Name, common.Reset)
 	}
 
-	var aLines  []string
+	var aLines[]string
 	var outputs[4]string
 	var AluOperations[4]string
 	flags := uint8(0)
@@ -316,15 +376,15 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	} else {
 		t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
 	}
-
-	lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.step.CurrentStep(), d.clock.CurrentState(),
-		(d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
-	for i := 0; i < len(lines); i++ {
-		t.PrintAt(1, 21+i, lines[i])
-	}
 	t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
-	for i := 0; i < 12; i++ {
+
+	lines, aLines, outputs, AluOperations = d.opCode.Block(
+		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
+	for i := 0; i < 14; i++ {
 		str := ""
+		if i < len(lines) {
+			t.PrintAt(1, 21+i, lines[i])
+		}
 		if i < len(aLines) {
 			str = aLines[i]
 		}
@@ -341,9 +401,9 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// Bus Content
 	t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
-	t.PrintAtf(86,  8, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
-	t.PrintAtf(85,  9, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
-	t.PrintAtf(85, 10, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
+	t.PrintAtf(85,  8, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
+	t.PrintAtf(86,  9, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
+	t.PrintAtf(85, 10, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
 	t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
 
 	// ALU Operation
@@ -362,20 +422,15 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	// Notifications
 	lines = d.log.LogBlock()
 	max := d.display.Rows() - offset
-	cl := fmt.Sprintf("%-65s", " ")
 	if len(lines) > max {
 		lines = lines[:max]
 	}
 	for i := 0; i < max; i++ {
 		line := display.ClearLine
-		if i < d.display.Rows() - 5 {
-			d.display.PrintAt(1, d.display.Rows()-i, cl)
-		} else {
-			if i < len(lines) {
-				line = lines[i]
-			}
-			d.display.PrintAt(1, d.display.Rows()-i, line)
+		if i < len(lines) {
+			line = lines[i]
 		}
+		d.display.PrintAt(1, d.display.Rows()-i, line)
 	}
 
 	// Restore cursor position
@@ -403,19 +458,35 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 			d.reinitialize()
 		case 'q':
 			return true
-		case 'd':
-			d.log.SetDebug(false)
 		case 'D':
+			d.log.SetDebug(false)
+		case 'd':
 			d.log.SetDebug(true)
+		case 'c':
+			flags := uint8(0)
+			if !d.ignoreFlags {
+				flags = d.flags.CurrentFlags()
+			}
+			mnemonics := d.opCode.ActiveLines(flags, (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2, 64, " | ", "CL_")
+			if len(mnemonics) > 0 && strings.HasPrefix(mnemonics[0], "CL_CTMR") {
+				if strings.HasPrefix(mnemonics[0], "CL_CTMR | ") {
+					mnemonics = []string{mnemonics[0][10:]}
+				} else {
+					mnemonics = []string{mnemonics[0][7:]}
+				}
+			}
+			if len(mnemonics) > 0 {
+				clipboard.WriteAll(mnemonics[0])
+				d.log.Info("Mnemonics copied to clipboard")
+			} else {
+				clipboard.WriteAll("")
+				d.log.Info("No lines set")
+			}
+
 		case 'h':
 			d.UIs = append([]common.UI{d.helpPage.Help()}, d.UIs...)
-		case 'H':
-			d.codes.ShowNames(!d.codes.IsShowNames())
 		case 'l':
 			d.UIs = append([]common.UI{d.log.HistoryViewer()}, d.UIs...)
-		case 'm':
-			d.opCodes.ToggleMnemonic()
-			d.redraw()
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
 		default:
@@ -446,21 +517,17 @@ func tickFunc(d *Driver, phaseChange bool) {
 	if !d.ignoreFlags {
 		flags = d.flags.CurrentFlags()
 	}
-	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
-	d.serial.SetLines(lines)
+	d.lines = d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
+	d.serial.SetLines(d.lines)
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {
 		d.SetAddress(address)
 	}
 
-	if d.clock.CurrentState() == instructionSet.PHI1 || lines & instructionSet.CL_DBRW != 0 {
+	if d.clock.CurrentState() == instructionSet.PHI1 || d.lines & instructionSet.CL_DBRW != 0 {
 		if data, ok := d.memory.ReadMemory(d.address); ok {
 			d.serial.SetData(data)
-		}
-	} else {
-		if data, ok := d.serial.ReadData(); ok {
-			d.memory.WriteMemory(d.address, data)
 		}
 	}
 

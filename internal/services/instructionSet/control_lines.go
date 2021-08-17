@@ -88,6 +88,7 @@ const (
 	ADL_Constants  = /* 2 */ CL_ALD1
 	ADL_SP         = /* 3 */ CL_ALD0 | CL_ALD1
 	ADL_ADD        = /* 4 */ CL_ALD2
+	ADL_PC_LOW_REG = /* 5 */ CL_ALD0 | CL_ALD2
 ) // Address bus low driver
 const (
 	SB_ACC         = /* 0 */ 0
@@ -101,7 +102,7 @@ const (
 
 var (
 	mnemonics = [][]string{
-		/* EPROM 1a */ {"TRST", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
+		/* EPROM 1a */ {"CTMR", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
 		/* EPROM 1b */ {"ALD0", ""}, {"ALD1", ""}, {"ALD2", ""}, {"DBRW", ""}, {"UNU1", "CIOV"}, {"PCIN", ""}, {"PCLL", ""}, {"PCLH", ""},
 		/* EPROM 2a */ {"ALLD", ""}, {"AHLD", ""}, {"SPLD", ""}, {"ALC2", ""}, {"ALC1", ""},     {"ALC0", ""}, {"CRST", ""}, {"AULB", ""},
 		/* EPROM 2b */ {"AULA", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO1", ""}, {"AUO2", ""}, {"AUS1", ""},
@@ -192,7 +193,7 @@ var (
 		CL_ALD1:                     "Constants",
 		CL_ALD0 | CL_ALD1:           "Stack pointer",
 		CL_ALD2:                     "ALU",
-		CL_ALD0 | CL_ALD2:           "None (6)",
+		CL_ALD0 | CL_ALD2:           "PC Low Register",
 		CL_ALD1 | CL_ALD2:           "None (7)",
 		CL_ALD0 | CL_ALD1 | CL_ALD2: "None (8)",
 	}
@@ -247,7 +248,6 @@ type coord struct {
 	x,y int
 }
 type ControlLines struct {
-	showBlock bool
 	lines     []string
 	setDirty  func(bool)
 	xOffset   []int
@@ -363,20 +363,8 @@ func (l *ControlLines) KeyIntercept(a int, k int, connected bool) bool {
 	return true
 }
 
-func (l *ControlLines) IsShowNames() bool{
-	return l.showBlock
-}
-func (l *ControlLines) ShowNames(enable bool) {
-	if l.showBlock != enable {
-		l.showBlock = enable
-		l.setDirty(true)
-	}
-}
 func (l *ControlLines) LineNamesBlock(clock uint8) []string {
-	if l.showBlock {
-		return l.lines
-	}
-	return []string{ fmt.Sprintf("%-57s", lineDescriptions[l.cursor.x - 1][clock])}
+	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.x - 1][clock], display.ClearEnd)}
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)

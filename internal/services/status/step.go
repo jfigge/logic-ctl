@@ -23,16 +23,16 @@ func (s *Steps) CurrentStep() uint8 {
 	return s.step
 }
 
-func (s *Steps) StepBlock() string {
+func (s *Steps) StepBlock(lastStep uint8) string {
 	t, colour, lastColour := s.step, common.Yellow, ""
 	str := ""
-	for i := uint8(0); i < 8; i++ {
+	for i := uint8(0); i <= 7; i++ {
 		colour = step
-		if i == t {
+		if i == t + 1 || (i == 0 && t + 1 == lastStep) {
 			colour = currentStep
 		}
 		if colour == lastColour { colour = "" } else { lastColour = colour }
-		str = fmt.Sprintf("%s%s %d ", str, colour, i)
+		str = fmt.Sprintf("%s%s %d ", str, colour, i + 1)
 	}
 	return str + common.Reset
 }
