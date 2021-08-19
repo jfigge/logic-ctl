@@ -6,7 +6,6 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/config"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
-	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
 	srl "go.bug.st/serial"
@@ -36,8 +35,7 @@ type Serial struct {
 	dirty        bool
 	initialize   bool
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(),
-	setStatus  func(uint8), startCapture func(), stopCapture func()) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8)) *Serial {
 	s := &Serial{
 		clock:        clock,
 		irq:          irq,
@@ -46,8 +44,6 @@ func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi
 		log:          log,
 		setDirty:     setDirty,
 		setStatus:    setStatus,
-		startCapture: startCapture,
-		stopCapture:  stopCapture,
 	}
 	return s
 }
@@ -281,11 +277,6 @@ func (s *Serial) SetLines(data uint64) bool {
 	} else if n != 8 {
 		s.log.Errorf("Unexpected number of bytes sent.  Expected 8, sent: %d", n)
 		return false
-	}
-	if bs[2] & (instructionSet.CL_DBRW >> 32) == 0 {
-		s.startCapture()
-	} else {
-		s.stopCapture()
 	}
 	return true
 }

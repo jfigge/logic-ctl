@@ -451,7 +451,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: none
 		// JSR pushes the address-1 of the next operation on to the stack before transferring program control to the
 		// following address. Subroutines are normally terminated by a RTS op code.
-		0x20 : jsr(mop(ABS, "JSR", "$5597", 0x20, 3, 6, false)),
+		0x20 : jsr(mop(ABS, "JSR", "$5597", 0x20, 3, 7, false)),
 
 
 		// LDA (Load Accumulator)
@@ -650,14 +650,14 @@ func defineOpCodes() map[uint8]*OpCode {
 
 	return ocs
 }
-func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool) *OpCode {
+func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, steps uint8, pageCross bool) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = addrMode
 	oc.Name      = name
 	oc.Syntax    = fmt.Sprintf("%s %s", name, syntax)
 	oc.OpCode    = opcode
 	oc.Operands  = length - 1
-	oc.Steps     = timing
+	oc.Steps     = steps
 	oc.PageCross = pageCross
 	oc.Virtual   = false
 	oc.BranchBit = 0
@@ -836,8 +836,8 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
 			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
 			oc.Lines[flags][1][PHI2] ^= CL_PCIN
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AHLD
-			oc.Lines[flags][2][PHI2] ^= dbSource | CL_DBRW
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= 0
 			oc.Lines[flags][3][PHI2] ^= 0
 		case ABX:
@@ -860,18 +860,19 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 }
 func jsr(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AUSA
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
-		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
-		oc.Lines[flags][1][PHI2] ^= CL_DBD1 | CL_DBRW
-		oc.Lines[flags][2][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
-		oc.Lines[flags][2][PHI2] ^= CL_DBD0 | CL_DBD1 | CL_DBRW
-		oc.Lines[flags][3][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
-		oc.Lines[flags][3][PHI2] ^= CL_AHD0 | CL_PCLH
-		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
-		oc.Lines[flags][4][PHI2] ^= CL_ALD1 | CL_PCLL
-		oc.Lines[flags][5][PHI1] ^= 0
-		oc.Lines[flags][5][PHI2] ^= 0
+		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
+		oc.Lines[flags][1][PHI2] ^= 0
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
+		oc.Lines[flags][2][PHI2] ^= CL_DBRW
+		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][3][PHI2] ^= CL_DBRW
+		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
+		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_PCLH
+		oc.Lines[flags][5][PHI1] ^= CL_AHD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
+		oc.Lines[flags][5][PHI2] ^= CL_ALD1 | CL_PCLL | CL_PCIN
+		loadNextInstruction(oc, flags)
 	}
 	return oc
 }

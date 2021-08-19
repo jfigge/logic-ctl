@@ -41,9 +41,6 @@ type Driver struct {
 	initialize   bool
 	keyIntercept []common.Intercept
 	ignoreFlags  bool
-	lines        uint64
-	writer       func()
-	quit         chan struct{}
 }
 func New() *Driver {
 	d := Driver{}
@@ -57,7 +54,6 @@ func New() *Driver {
 		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
-	d.lines        = instructionSet.Defaults[0]
 	d.ignoreFlags  = true
 	d.UIs          = append(d.UIs, &d)
 	d.errorPage    = NewErrorPage()
@@ -71,7 +67,7 @@ func New() *Driver {
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
 	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags, d.startDataCapture, d.stopDataCapture)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags)
 	d.memory       = memory.New(d.log, d.opCodes)
 	d.instrAddr    = 0
 	d.keyIntercept = append(d.keyIntercept, d.codes)
@@ -237,7 +233,6 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 			}
 		}
 
-		d.lines = d.opCode.Lines[flags][step][clock]
 		d.redraw()
 	}
 
@@ -245,50 +240,6 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
 	   d.serial.IsConnected() {
 	 	d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
-	}
-}
-
-func (d *Driver) startDataCapture() {
-	if d.quit == nil {
-		if d.clock.CurrentState() == instructionSet.PHI2 {
-			d.log.Info("Capture started")
-			d.quit = make(chan struct{})
-			go func(d *Driver, ticker *time.Ticker) {
-				for {
-					select {
-					case <-ticker.C:
-						address := d.address
-						if data, ok := d.serial.ReadData(); ok {
-							d.log.Infof("Capture writer(%s, %s)", display.HexAddress(address), display.HexData(data))
-							d.writer = func() {
-								if ok := d.memory.WriteMemory(address, data); !ok {
-									d.log.Warnf("Failed to write %s @ %s", display.HexAddress(address), display.HexData(data))
-								}
-							}
-						}
-					case <-d.quit:
-						d.log.Info("Capture stopped")
-						ticker.Stop()
-						d.quit = nil
-						return
-					}
-				}
-			}(d, time.NewTicker(200*time.Millisecond))
-		} else {
-			d.log.Info("Wrong phase to start capturing")
-		}
-	} else {
-		d.log.Info("Capture already running")
-	}
-}
-
-func (d *Driver) stopDataCapture() {
-	if d.quit != nil {
-		close(d.quit)
-		if d.writer != nil {
-			d.writer()
-		}
-		d.quit = nil
 	}
 }
 
@@ -517,17 +468,23 @@ func tickFunc(d *Driver, phaseChange bool) {
 	if !d.ignoreFlags {
 		flags = d.flags.CurrentFlags()
 	}
-	d.lines = d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
-	d.serial.SetLines(d.lines)
+	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
+	d.serial.SetLines(lines)
 
 	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {
 		d.SetAddress(address)
 	}
 
-	if d.clock.CurrentState() == instructionSet.PHI1 || d.lines & instructionSet.CL_DBRW != 0 {
+	if d.clock.CurrentState() == instructionSet.PHI1 || lines & instructionSet.CL_DBRW != 0 {
 		if data, ok := d.memory.ReadMemory(d.address); ok {
 			d.serial.SetData(data)
+		}
+	} else {
+		if data, ok := d.serial.ReadData(); ok {
+			if ok := d.memory.WriteMemory(d.address, data); !ok {
+				d.log.Warnf("Failed to write %s @ %s", display.HexAddress(d.address), display.HexData(data))
+			}
 		}
 	}
 
