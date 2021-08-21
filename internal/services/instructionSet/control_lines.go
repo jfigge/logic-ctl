@@ -68,38 +68,6 @@ const (
 	CL_CIOV = CL_AULA
 )
 
-const (
-	DB_Accumulator = /* 1 */ CL_DBD0
-	DB_Flags       = /* 2 */ CL_DBD1
-	DB_SB          = /* 3 */ CL_DBD0 | CL_DBD1
-	DB_PC_High     = /* 4 */ CL_DBD2
-	DB_PC_Low      = /* 5 */ CL_DBD0 | CL_DBD2
-	DB_Input       = /* 6 */ CL_DBD1 | CL_DBD2
-) // Data Bus driver
-const (
-	ADH_Input      = /* 0 */ 0
-	ADH_Constants  = /* 1 */ CL_AHD0
-	ADH_PC_High    = /* 2 */ CL_AHD1
-	ADH_SB         = /* 3 */ CL_AHD0 | CL_AHD1
-) // Address bus high driver
-const (
-	ADL_Input      = /* 0 */ 0
-	ADL_PC_Low     = /* 1 */ CL_ALD0
-	ADL_Constants  = /* 2 */ CL_ALD1
-	ADL_SP         = /* 3 */ CL_ALD0 | CL_ALD1
-	ADL_ADD        = /* 4 */ CL_ALD2
-	ADL_PC_LOW_REG = /* 5 */ CL_ALD0 | CL_ALD2
-) // Address bus low driver
-const (
-	SB_ACC         = /* 0 */ 0
-	SB_Y_REG       = /* 1 */ CL_SBD0
-	SB_X_REG       = /* 2 */ CL_SBD1
-	SB_ADD         = /* 3 */ CL_SBD0 | CL_SBD1
-	SB_SP          = /* 4 */ CL_SBD2
-	SB_DB          = /* 5 */ CL_SBD0 | CL_SBD2
-	SB_ADH         = /* 6 */ CL_SBD1 | CL_SBD2
-) // Special Bus driver
-
 var (
 	mnemonics = [][]string{
 		/* EPROM 1a */ {"CTMR", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
@@ -172,18 +140,18 @@ var (
 	Defaults = [2]uint64 {x, x ^ CL_CIOV }
 
 	OutputsDB  = map[uint64]string {
-		0:                           "None (1)",
+		0:                           "None (0)",
 		CL_DBD0:                     "Accumulator",
 		CL_DBD1:                     "Processor status",
 		CL_DBD0 | CL_DBD1:           "Special bus",
 		CL_DBD2:                     "Program counter high",
 		CL_DBD0 | CL_DBD2:           "Program counter low",
-		CL_DBD1 | CL_DBD2:           "Input data latch",
-		CL_DBD0 | CL_DBD1 | CL_DBD2: "None (8)",
+		CL_DBD1 | CL_DBD2:           "Input data latch*",
+		CL_DBD0 | CL_DBD1 | CL_DBD2: "None (7)",
 	}
 	OutputsADH = map[uint64]string{
 		0 :                "Input data latch",
-		CL_AHD0:           "Constants",
+		CL_AHD0:           "Constants*",
 		CL_AHD1:           "Program counter",
 		CL_AHD0 | CL_AHD1: "Serial bus",
 	}
@@ -194,8 +162,8 @@ var (
 		CL_ALD0 | CL_ALD1:           "Stack pointer",
 		CL_ALD2:                     "ALU",
 		CL_ALD0 | CL_ALD2:           "PC Low Register",
-		CL_ALD1 | CL_ALD2:           "None (7)",
-		CL_ALD0 | CL_ALD1 | CL_ALD2: "None (8)",
+		CL_ALD1 | CL_ALD2:           "None (6)",
+		CL_ALD0 | CL_ALD1 | CL_ALD2: "None* (7)",
 	}
 	OutputsSB  = map[uint64]string{
 		0 :                          "Accumulator",
@@ -205,7 +173,7 @@ var (
 		CL_SBD2:                     "Stack pointer",
 		CL_SBD0 | CL_SBD2:           "Data bus",
 		CL_SBD1 | CL_SBD2:           "Address high bus",
-		CL_SBD0 | CL_SBD1 | CL_SBD2: "None (8)",
+		CL_SBD0 | CL_SBD1 | CL_SBD2: "None* (7)",
 	}
 
 	AluA = map[uint64]string{
