@@ -142,12 +142,6 @@ func New(log *logging.Log) *OperationCodes {
 	}
 	for _, oc := range operationCodes.lookup {
 		oc.Presets = oc.Lines
-		//for flags := uint8(0); flags < 16; flags++ {
-		//	for timing := uint8(0); timing < 8; timing++ {
-		//		oc.Presets[flags][timing][PHI1] = defaults
-		//		oc.Presets[flags][timing][PHI2] = defaults
-		//	}
-		//}
 	}
 	return operationCodes
 }
@@ -451,7 +445,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: none
 		// JSR pushes the address-1 of the next operation on to the stack before transferring program control to the
 		// following address. Subroutines are normally terminated by a RTS op code.
-		0x20 : jsr(mop(ABS, "JSR", "$5597", 0x20, 3, 7, false)),
+		0x20 : jsr(),
 
 
 		// LDA (Load Accumulator)
@@ -650,22 +644,6 @@ func defineOpCodes() map[uint8]*OpCode {
 
 	return ocs
 }
-func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, steps uint8, pageCross bool) *OpCode {
-	oc := new(OpCode)
-	oc.AddrMode  = addrMode
-	oc.Name      = name
-	oc.Syntax    = fmt.Sprintf("%s %s", name, syntax)
-	oc.OpCode    = opcode
-	oc.Operands  = length - 1
-	oc.Steps     = steps
-	oc.PageCross = pageCross
-	oc.Virtual   = false
-	oc.BranchBit = 0
-	oc.BranchSet = false
-	setDefaultLines(oc)
-	addressMode(oc)
-	return oc
-}
 func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = addrMode
@@ -746,7 +724,6 @@ func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	for flags := 0; flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= 0
 		oc.Lines[flags][0][PHI1] ^= CL_PCIN
-
 	}
 	return oc
 }
@@ -807,31 +784,66 @@ func stk(name string, opcode uint8, timing uint8, push bool, dataBusLines uint64
 	}
 	return oc
 }
+func jsr() *OpCode {
+	oc := new(OpCode)
+	oc.AddrMode  = ABS
+	oc.Name      = "JSR"
+	oc.Syntax    = "$5597"
+	oc.OpCode    = 0x20
+	oc.Operands  = 2
+	oc.Steps     = 7
+	oc.PageCross = false
+	oc.Virtual   = false
+	oc.BranchBit = 0
+	oc.BranchSet = false
+	setDefaultLines(oc)
+
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AUSA
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
+		oc.Lines[flags][1][PHI2] ^= 0
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
+		oc.Lines[flags][2][PHI2] ^= CL_DBRW
+		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][3][PHI2] ^= CL_DBRW
+		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
+		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_PCLH
+		oc.Lines[flags][5][PHI1] ^= CL_AHD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
+		oc.Lines[flags][5][PHI2] ^= CL_ALD1 | CL_PCLL | CL_PCIN
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+
+func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, steps uint8, pageCross bool) *OpCode {
+	oc := new(OpCode)
+	oc.AddrMode  = addrMode
+	oc.Name      = name
+	oc.Syntax    = fmt.Sprintf("%s %s", name, syntax)
+	oc.OpCode    = opcode
+	oc.Operands  = length - 1
+	oc.Steps     = steps
+	oc.PageCross = pageCross
+	oc.Virtual   = false
+	oc.BranchBit = 0
+	oc.BranchSet = false
+	setDefaultLines(oc)
+	addressMode(oc)
+	return oc
+}
 
 func lda(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
-			/* Begin IMM */
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			/* End IMM */
-			oc.Lines[flags][1][PHI1] ^= CL_SBD1 | CL_SBLA
-			oc.Lines[flags][1][PHI2] ^= 0
+			oc.Lines[flags][0][PHI2] ^= CL_SBD1 | CL_SBLA
 
 		case ZPG:
 		case ZPX:
 		case ABS:
-			/* Begin ABS */
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
-			oc.Lines[flags][1][PHI2] ^= CL_PCIN
-			/* End ABS */
 			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
-			oc.Lines[flags][2][PHI2] ^= 0
-			oc.Lines[flags][3][PHI1] ^= CL_SBD1 | CL_SBLA
-			oc.Lines[flags][3][PHI2] ^= 0
+			oc.Lines[flags][2][PHI2] ^= CL_SBD1 | CL_SBLA
 		case ABX:
 		case ABY:
 		case IZX:
@@ -857,12 +869,6 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 		case ZPG:
 		case ZPX:
 		case ABS:
-			/* Begin ABS */
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
-			oc.Lines[flags][1][PHI2] ^= CL_PCIN
-			/* End ABS */
 			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AHLD
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= 0
@@ -886,41 +892,13 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 	return oc
 }
 
-func addressMode(oc *OpCode) *OpCode {
-	return oc
-}
-
-func jsr(oc *OpCode) *OpCode {
-	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AUSA
-		oc.Lines[flags][0][PHI2] ^= CL_PCIN
-		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
-		oc.Lines[flags][1][PHI2] ^= 0
-		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
-		oc.Lines[flags][2][PHI2] ^= CL_DBRW
-		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
-		oc.Lines[flags][3][PHI2] ^= CL_DBRW
-		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
-		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_PCLH
-		oc.Lines[flags][5][PHI1] ^= CL_AHD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
-		oc.Lines[flags][5][PHI2] ^= CL_ALD1 | CL_PCLL | CL_PCIN
-		loadNextInstruction(oc, flags)
-	}
-	return oc
-}
-
-func logic(oc *OpCode, alu_op uint64, alu_a uint64) *OpCode {
-	addressMode(oc)
+func logic(oc *OpCode,aluOp uint64, aluA uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
-			/* Begin IMM */
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			/* End IMM */
-			oc.Lines[flags][0][PHI1] ^= alu_a
-			oc.Lines[flags][1][PHI2] ^= alu_op
-
+			oc.Lines[flags][0][PHI1] ^= aluA
+			oc.Lines[flags][1][PHI1] ^= aluOp | CL_AULB
+			oc.Lines[flags][1][PHI2] ^= aluOp | CL_SBLA | CL_SBD2
 		case ZPG:
 		case ZPX:
 		case ABS:
@@ -933,6 +911,31 @@ func logic(oc *OpCode, alu_op uint64, alu_a uint64) *OpCode {
 	}
 	return oc
 }
+
+func addressMode(oc *OpCode) *OpCode {
+	oc.usesAM = true
+	for flags := uint8(0); flags < 16; flags++ {
+		switch oc.AddrMode {
+		case IMM:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+
+		case ZPG:
+		case ZPX:
+		case ABS:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN
+		case ABX:
+		case ABY:
+		case IZX:
+		case IZY:
+		}
+	}
+	return oc
+}
+
 
 func setDefaultLines(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
@@ -947,9 +950,11 @@ func setDefaultLines(oc *OpCode) {
 		}
 	}
 }
-func loadNextInstruction(oc *OpCode, flags uint8 ) {
+func loadNextInstruction(oc *OpCode, flags uint8 ) *OpCode {
+	oc.usesLNI = true
 	oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
+	return oc
 }
 
 type OpCode struct {
@@ -965,6 +970,8 @@ type OpCode struct {
 	Virtual   bool             `json:"Virtual"`
 	Lines     [16][8][2]uint64 `json:"lines,omitempty"`
 	Presets   [16][8][2]uint64 `json:"presets,omitempty"`
+	usesAM    bool
+	usesLNI   bool
 	// Flags, Timing, Clock 1/0
 }
 func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, editPhase uint8) ([]string, []string, [4]string, [4]string) {
@@ -997,7 +1004,7 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 				lines = append(lines, line)
 			}
 		}
-		lines2 = op.ActiveLines(flags, editStep, editPhase, 8, " ", "")
+		lines2 = op.ActiveLines(flags, editStep, editPhase, 8, " ", "", false)
 
 		outputs[0] = OutputsDB [op.Lines[flags][editStep][editPhase] & (CL_DBD0|CL_DBD1|CL_DBD2)]
 		outputs[1] = OutputsADL[op.Lines[flags][editStep][editPhase] & (CL_ALD0|CL_ALD1|CL_ALD2)]
@@ -1014,12 +1021,16 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 
 	return lines, lines2, outputs, aluOperations
 }
-func (op *OpCode) ActiveLines(flags uint8, step uint8, clock uint8, groupSize int, join string, prefix string) []string {
+func (op *OpCode) ActiveLines(flags uint8, step uint8, clock uint8, groupSize int, join string, prefix string, skipAddressModeLines bool) []string {
 	var collector []string
 	var lines []string
 	var index = 0
 	bit := uint64(140737488355328)
 	l := op.Lines[flags][step][clock] ^ Defaults[clock]
+	if skipAddressModeLines {
+		l = loadNextInstruction(addressMode(&OpCode{AddrMode: op.AddrMode, Steps: op.Steps, Lines: op.Lines}), flags).Lines[flags][step][clock] ^ Defaults[clock]
+	}
+
 	for bit > 0 {
 		if l & bit > 0 {
 			collector = append(collector, fmt.Sprintf("%s%s", prefix, mnemonics[index][clock]))
@@ -1079,6 +1090,14 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 		if clock != PHI1 {
 			return "Address bus high can only be loaded on phi-1", false
 		}
+	case CL_AULA:
+		if clock != PHI1 {
+		return "ALU A register can only be loaded on phi-1", false
+	}
+	case CL_AULB:
+		if clock != PHI1 {
+			return "ALU B register can only be loaded on phi-1", false
+		}
 	case CL_SPLD:
 		if clock != PHI1 {
 			return "Stack pointer can only be loaded on phi-1", false
@@ -1100,16 +1119,16 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 			return "Flag updates can only be performed on phase 2", false
 		}
 	case CL_SBLA:
-		if clock != PHI1 {
-			return "Accumulator can only be loaded on phi-1", false
+ 		if clock != PHI2{
+			return "Accumulator can only be loaded on phi-2", false
 		}
 	case CL_SBLX:
-		if clock != PHI1 {
-			return "X register can only be loaded on phi-1", false
+		if clock != PHI2 {
+			return "X register can only be loaded on phi-2", false
 		}
 	case CL_SBLY:
-		if clock != PHI1 {
-			return "Y register can only be loaded on phi-1", false
+		if clock != PHI2 {
+			return "Y register can only be loaded on phi-2", false
 		}
 	}
 	return "Ok", true

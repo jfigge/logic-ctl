@@ -413,12 +413,12 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 			d.log.SetDebug(false)
 		case 'd':
 			d.log.SetDebug(true)
-		case 'c':
+		case 'c', 'C':
 			flags := uint8(0)
 			if !d.ignoreFlags {
 				flags = d.flags.CurrentFlags()
 			}
-			mnemonics := d.opCode.ActiveLines(flags, (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2, 64, " | ", "CL_")
+			mnemonics := d.opCode.ActiveLines(flags, (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2, 64, " | ", "CL_", a == 'c')
 			if len(mnemonics) > 0 && strings.HasPrefix(mnemonics[0], "CL_CTMR") {
 				if strings.HasPrefix(mnemonics[0], "CL_CTMR | ") {
 					mnemonics = []string{mnemonics[0][10:]}
@@ -428,10 +428,18 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 			}
 			if len(mnemonics) > 0 {
 				clipboard.WriteAll(mnemonics[0])
-				d.log.Info("Mnemonics copied to clipboard")
+				if a == 'c' {
+					d.log.Info("Mnemonics copied to clipboard without address mode lines")
+				} else {
+					d.log.Info("Mnemonics copied to clipboard")
+				}
 			} else {
-				clipboard.WriteAll("")
-				d.log.Info("No lines set")
+				clipboard.WriteAll("0")
+				if a == 'c' {
+					d.log.Info("No lines set outside of address mode lines")
+				} else {
+					d.log.Info("No lines set")
+				}
 			}
 
 		case 'h':

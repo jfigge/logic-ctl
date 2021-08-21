@@ -2,7 +2,7 @@
   <configuration default="false" name="Debug" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="logic-ctl" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-c config.yaml -r roms/test.bin" />
+    <parameters value="-c config.yaml -r roms/AND-IMM.bin" />
     <kind value="FILE" />
     <package value="github.td.teradata.com/sandbox/logic-ctl" />
     <directory value="$PROJECT_DIR$" />

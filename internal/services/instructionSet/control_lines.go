@@ -30,8 +30,8 @@ const (
 	CL_AUS2 // ALU Shift #2 selector (0=first, 1=second)
 
 	CL_AUS1 // ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)
-	CL_AUO2 // ALU Op Selector #2 (0=first, 1=second)
 	CL_AUO1 // ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)
+	CL_AUO2 // ALU Op Selector #2 (0=first, 1=second)
 	CL_AUSA // ALU Load A Selector (0=Special Bus, 1=zeros)
 	CL_AUSB // ALU Load B Selector (0=DB, 1=ADL)
 	CL_AUIB // ALU Load Invert data bus
@@ -111,8 +111,8 @@ var (
 		{"ALU Load Invert data bus",""},
 		{"ALU Load B Selector (0=DB, 1=ADL)",""},
 		{"ALU Load A Selector (0=Special Bus, 1=zeros)",""},
-		{"ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)",""},
 		{"ALU Op Selector #2 (0=first, 1=second)",""},
+		{"ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)",""},
 		{"ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)",""},
 		// EPROM 3a
 		{"ALU Shift #2 selector (0=first, 1=second)",""},
