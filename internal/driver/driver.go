@@ -14,33 +14,38 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
+
 type Driver struct {
 	instrAddr    uint16
-	address      uint16
-	opCode       *instructionSet.OpCode
-	display      *display.Terminal
-	clock        *status.Clock
-	irq          *status.Irq
-	nmi          *status.Nmi
-	reset        *status.Reset
-	log          *logging.Log
-	serial       *serial.Serial
-	opCodes      *instructionSet.OperationCodes
-	codes        *instructionSet.ControlLines
-	errorPage    *ErrorPage
-	helpPage     *HelpPage
-	memory       *memory.Memory
-	step         *status.Steps
-	flags        *status.Flags
-	ready        bool
-	UIs          []common.UI
-	dirty        bool
-	initialize   bool
+	address     uint16
+	opCode      *instructionSet.OpCode
+	display     *display.Terminal
+	clock       *status.Clock
+	irq         *status.Irq
+	nmi         *status.Nmi
+	reset       *status.Reset
+	log         *logging.Log
+	serial      *serial.Serial
+	opCodes     *instructionSet.OpCodes
+	lines       *instructionSet.ControlLines
+	errorPage   *ErrorPage
+	helpPage    *HelpPage
+	memory      *memory.Memory
+	step        *status.Steps
+	flags       *status.Flags
+	UIs         []common.UI
+	dispChan    chan bool
+	monitorChan chan bool
+	clockChan   chan bool
+	inputChan   chan common.Input
+	connected    bool
 	keyIntercept []common.Intercept
 	ignoreFlags  bool
+	wg           *sync.WaitGroup
 }
 func New() *Driver {
 	d := Driver{}
@@ -54,6 +59,8 @@ func New() *Driver {
 		fmt.Printf("%sMinimum console size must be 100x38.  Currently at %dx%d%s\n", common.Red, d.display.Cols(), d.display.Rows(), common.Reset)
 		os.Exit(1)
 	}
+
+	d.wg           = &sync.WaitGroup{}
 	d.ignoreFlags  = true
 	d.UIs          = append(d.UIs, &d)
 	d.errorPage    = NewErrorPage()
@@ -62,56 +69,96 @@ func New() *Driver {
 	d.step         = status.NewSteps(d.log)
 	d.flags        = status.NewFlags(d.log)
 	d.opCodes      = instructionSet.New(d.log)
+	d.memory       = memory.New(d.log, d.opCodes)
 	d.clock        = status.NewClock(d.log, d.tick)
 	d.irq          = status.NewIrq(d.log, d.redraw)
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
-	d.codes        = instructionSet.NewControlLines(d.log, d.display, d.SetDirty, d.setLine)
-	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.redraw, d.flags.SetFlags)
-	d.memory       = memory.New(d.log, d.opCodes)
+	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
-	d.keyIntercept = append(d.keyIntercept, d.codes)
+	d.keyIntercept = append(d.keyIntercept, d.lines)
+	d.dispChan     = make(chan bool, 20)
+	d.monitorChan  = make(chan bool, 20)
+	d.clockChan    = make(chan bool, 20)
+	d.inputChan    = make(chan common.Input, 20)
 	return &d
 }
 
 func (d *Driver) Run() {
-	d.display.Cls()
+	go d.output(d.wg)
+	go d.input(d.wg)
+
 	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x8000) {
 		d.log.Dump()
 		os.Exit(1)
 	}
-	if d.serial.Connect(false) {
-		tickFunc(d, false)
-	}
-	d.ready = true
+	d.dispChan <- true
 
 	for len(d.UIs) > 0 {
-		connected := d.serial.IsConnected()
-		if !connected {
-			if connected = d.serial.Reconnect(); connected {
-				tickFunc(d, false)
-				d.SetDirty(true)
-			}
+		if a, k, e := d.ReadChar(); e != nil {
+			d.log.Warn(e.Error())
+		} else if a != 0 || k != 0 && len(d.UIs) > 0 {
+			d.inputChan <- common.Input{Ascii: a, KeyCode: k, Connected: d.connected}
 		}
-		d.UIs[0].Draw(d.display, connected)
-		a, k, _ := d.ReadChar()
-		if a != 0 || k != 0 {
-			if d.UIs[0].Process(a, k, connected) {
-				d.UIs = d.UIs[1:]
-				if len(d.UIs) > 0 {
-					d.UIs[0].SetDirty(true)
-				}
+	}
+
+	close(d.monitorChan)
+	close(d.dispChan)
+
+	d.wg.Wait()
+	fmt.Println("Wait Done")
+}
+
+func (d *Driver) output(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer func() {
+		fmt.Println("Output Done")
+		wg.Done()
+	}()
+	initialize, ok := false, true
+	for ok {
+		select {
+		case initialize, ok = <- d.dispChan:
+			if len(d.UIs) > 0 {
+				d.UIs[0].Draw(d.display, d.connected, initialize)
 			}
 		}
 	}
 	d.display.Cls()
-	d.serial.Disconnect()
+}
+func (d *Driver) input(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer func() {
+		fmt.Println("Input Done")
+		wg.Done()
+	}()
+	input, connected, phaseChange, ok := common.Input{}, false, false, true
+
+	// By monitoring all state changes in one thread we can
+	// ensure all updates are serialized
+	for ok {
+		select {
+		case connected, ok = <-d.monitorChan:
+			d.connected = connected
+			d.redraw(true)
+
+		case input, ok = <-d.inputChan:
+			if d.UIs[0].Process(input) {
+				d.UIs = d.UIs[1:]
+				d.redraw(true)
+			}
+		case phaseChange, ok = <- d.clockChan:
+			d.tickFunc(phaseChange)
+		}
+	}
+	d.serial.Terminate()
 }
 
 func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	x, _ := term.Open("/dev/tty")
 	if x == nil {
-		return 0, 0, fmt.Errorf("unavailable")
+		return 0, 0, fmt.Errorf("terminal unavailable")
 	} else {
 		defer func() {
 			if err := x.Restore(); err != nil {
@@ -127,10 +174,11 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 		str := fmt.Sprintf("Failed to access terminal RawMode: %v", err)
 		d.log.Error(str)
 		d.UIs = append([]common.UI{d.errorPage.ErrorViewer(str)}, d.UIs...)
+		d.redraw(true)
 	}
 	bs := make([]byte, 3)
 
-	if err := x.SetReadTimeout(50 * time.Millisecond); err != nil {
+	if err := x.SetReadTimeout(5 * time.Second); err != nil {
 		d.log.Warn("Failed to set read timeout")
 	}
 	if numRead, err := x.Read(bs); err != nil {
@@ -146,8 +194,8 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	} else if numRead == 3 && bs[0] == 27 && bs[1] == 91 {
 		// Three-character control sequence, beginning with "ESC-[".
 
-		// Since there are no ASCII codes for arrow keys, we use
-		// Javascript key codes.
+		// Since there are no ASCII lines for arrow keys, we use
+		// Javascript key lines.
 		if bs[2] == 65 {
 			// Up
 			keyCode = 38
@@ -174,30 +222,6 @@ func (d *Driver) SetAddress(address uint16) {
 		d.address = address
 		d.log.Debugf("Address set to %s", display.HexAddress(d.address))
 	}
-}
-func (d *Driver) SetOpCode(opCode uint8) {
-	if d.opCode == nil || d.opCode.OpCode != opCode {
-		d.opCode = d.opCodes.Lookup(opCode)
-		d.codes.SetSteps(d.opCode.Steps)
-	}
-	if !d.opCode.Virtual {
-		d.instrAddr = d.address
-	}
-	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
-}
-
-func (d *Driver) redraw() {
-	if len(d.UIs) > 0 {
-		d.UIs[0].SetDirty(false)
-	}
-}
-func (d *Driver) reinitialize() {
-	if len(d.UIs) > 0 {
-		d.UIs[0].SetDirty(true)
-	}
-}
-func (d *Driver) tick() {
-	go tickFunc(d, true)
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
@@ -233,29 +257,41 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 			}
 		}
 
-		d.redraw()
+		d.redraw(false)
 	}
 
-	 if step == d.step.CurrentStep() &&
+	if step == d.step.CurrentStep() &&
 		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
-	   d.serial.IsConnected() {
-	 	d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
+		d.connected {
+		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
 	}
 }
 
+func (d *Driver) redraw(clearScreen bool) {
+	if len(d.UIs) > 0 {
+		d.dispChan <- clearScreen
+	}
+}
+func (d *Driver) connectionStatus(connected bool) {
+	d.monitorChan <- connected
+}
+func (d *Driver) tick(phaseChange bool) {
+	d.clockChan <- phaseChange
+}
 
-func (d *Driver) Draw(t *display.Terminal, connected bool) {
+func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
-	// Skip a redraw if we/re not ready or already drawn
-	if !d.ready || (!d.dirty && !d.initialize)  {
-		return
+	if d.opCode == nil {
+		opCode, ok := d.serial.ReadOpCode()
+		if !ok {
+			opCode = 0xff
+		}
+		d.SetOpCode(opCode)
 	}
 
 	d.display.HideCursor()
-
-	if d.initialize {
+	if initialize {
 		t.Cls()
-		d.initialize = false
 	}
 
 	// Memory
@@ -288,31 +324,26 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// Step
 	t.PrintAtf(61, 4, "%sStep", common.Yellow)
-	steps := uint8(2)
-	if d.opCode != nil {
-		steps = d.opCode.Steps
-	}
+	steps := d.opCode.Steps
 	t.PrintAt(55, 5, d.step.StepBlock(steps))
 
 	// Instructions
 	t.PrintAtf(58, 7, "%sInstructions", common.Yellow)
 	lines = d.memory.InstructionBlock(d.instrAddr)
 	for i := 0; i < 11; i++ {
-		t.PrintAt(55, 8+i, lines[uint16(i)])
-	}
-
-	// Indicate if the board is connected
-	colour := common.BGGreen + common.White
-	if !d.serial.IsConnected() {
-		colour = common.BGRed + common.White
+		if i < len(lines) {
+			t.PrintAt(55, 8+i, lines[uint16(i)])
+		} else {
+			t.PrintAt(55, 8+i, "                             ")
+		}
 	}
 
 	// Control lines
 	offset := d.display.Rows() - 5
 	if !connected {
-		d.display.PrintAtf(1, 1, "%s   %s" , colour, common.Reset)
+		d.display.PrintAtf(1, 1, "%s%s   %s" , common.BGRed, common.White, common.Reset)
 	} else {
-		d.display.PrintAtf(1, 1, "%s%-3s%s", colour, d.opCode.Name, common.Reset)
+		d.display.PrintAtf(1, 1, "%s%s%-3s%s", common.BGGreen, common.White, d.opCode.Name, common.Reset)
 	}
 
 	var aLines[]string
@@ -330,7 +361,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
 
 	lines, aLines, outputs, AluOperations = d.opCode.Block(
-		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2)
+		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2)
 	for i := 0; i < 14; i++ {
 		str := ""
 		if i < len(lines) {
@@ -344,7 +375,7 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 
 	// Control line names
 	offset = len(lines)
-	lines = d.codes.LineNamesBlock((d.codes.EditStep() - 1) % 2)
+	lines = d.lines.LineNamesBlock((d.lines.EditStep() - 1) % 2)
 	for i, line := range lines {
 		t.PrintAt(1, 21 + offset + i, "        " + line)
 	}
@@ -364,10 +395,8 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(86, 16, "%sOp: %s%s%s", common.Yellow, common.White, AluOperations[2], display.ClearEnd)
 	t.PrintAtf(85, 17, "%sDir: %s%-10s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
 
-	d.display.ShowCursor()
-
 	// X and Y coordinates of cursor
-	str := d.codes.CursorPosition()
+	str := d.lines.CursorPosition()
 	d.display.PrintAt(d.display.Cols() - len(str), 1, str)
 
 	// Notifications
@@ -385,28 +414,22 @@ func (d *Driver) Draw(t *display.Terminal, connected bool) {
 	}
 
 	// Restore cursor position
-	d.codes.PositionCursor()
-	d.dirty = false
+	d.lines.PositionCursor()
+	d.display.ShowCursor()
 }
-func (d *Driver) SetDirty(initialize bool) {
-	d.dirty = true
-	if initialize {
-		d.initialize = true
-	}
-}
-func (d *Driver) Process(a int, k int, connected bool) bool {
+func (d *Driver) Process(input common.Input) bool {
 	for _, ki := range d.keyIntercept {
-		if ki.KeyIntercept(a,k, connected) {
+		if ki.KeyIntercept(input) {
 			return false
 		}
 	}
-	if k != 0 {
-		d.log.Warnf("Unknown code: [%v]", k)
+	if input.KeyCode != 0 {
+		d.log.Warnf("Unknown code: [%v]", input.KeyCode)
 	} else {
-		switch a {
+		switch input.Ascii {
 		case 'f':
 			d.ignoreFlags = !d.ignoreFlags
-			d.reinitialize()
+			d.redraw(true)
 		case 'q':
 			return true
 		case 'D':
@@ -418,7 +441,7 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 			if !d.ignoreFlags {
 				flags = d.flags.CurrentFlags()
 			}
-			mnemonics := d.opCode.ActiveLines(flags, (d.codes.EditStep() - 1) / 2, (d.codes.EditStep() - 1) % 2, 64, " | ", "CL_", a == 'c')
+			mnemonics := d.opCode.DescribeLine(flags, (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2, 64, " | ", "CL_", input.Ascii == 'c')
 			if len(mnemonics) > 0 && strings.HasPrefix(mnemonics[0], "CL_CTMR") {
 				if strings.HasPrefix(mnemonics[0], "CL_CTMR | ") {
 					mnemonics = []string{mnemonics[0][10:]}
@@ -428,14 +451,14 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 			}
 			if len(mnemonics) > 0 {
 				clipboard.WriteAll(mnemonics[0])
-				if a == 'c' {
+				if input.Ascii == 'c' {
 					d.log.Info("Mnemonics copied to clipboard without address mode lines")
 				} else {
 					d.log.Info("Mnemonics copied to clipboard")
 				}
 			} else {
 				clipboard.WriteAll("0")
-				if a == 'c' {
+				if input.Ascii == 'c' {
 					d.log.Info("No lines set outside of address mode lines")
 				} else {
 					d.log.Info("No lines set")
@@ -444,20 +467,23 @@ func (d *Driver) Process(a int, k int, connected bool) bool {
 
 		case 'h':
 			d.UIs = append([]common.UI{d.helpPage.Help()}, d.UIs...)
+			d.redraw(true)
 		case 'l':
 			d.UIs = append([]common.UI{d.log.HistoryViewer()}, d.UIs...)
+			d.redraw(true)
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
+			d.redraw(true)
 		default:
-			d.log.Warnf("Unmapped ascii code: [%c]", a)
+			d.log.Warnf("Unmapped ascii code: [%c]", input.Ascii)
 		}
 	}
 	return false
 }
 
-func tickFunc(d *Driver, phaseChange bool) {
+func (d *Driver) tickFunc(phaseChange bool) {
 
-	if state, ok := d.serial.ReadStatus();  ok {
+	if state, ok := d.serial.ReadStatus(); ok {
 		d.step.SetStep(state)
 		d.flags.SetFlags(state)
 	} else {
@@ -470,6 +496,11 @@ func tickFunc(d *Driver, phaseChange bool) {
 		} else {
 			return
 		}
+	}
+
+	if d.step.CurrentStep() > d.opCode.Steps {
+		d.log.Errorf("Invalid state. Step %d of %d", d.step.CurrentStep(), d.opCode.Steps)
+		return
 	}
 
 	flags := uint8(0)
@@ -496,7 +527,17 @@ func tickFunc(d *Driver, phaseChange bool) {
 		}
 	}
 
-	d.codes.SetEditStep(d.step.CurrentStep() * 2 + d.clock.CurrentState() + 1)
+	d.lines.SetEditStep(d.step.CurrentStep() * 2 + d.clock.CurrentState() + 1)
 	d.log.Tracef("tickFunc. PhaseChange: %v. Clock: %v. Flags: %v. Phase %v", phaseChange, d.step.CurrentStep(), d.flags.CurrentFlags(), d.clock.CurrentState())
-	d.SetDirty(false)
+	d.redraw(false)
+}
+func (d *Driver) SetOpCode(opCode uint8) {
+	if d.opCode == nil || d.opCode.OpCode != opCode {
+		d.opCode = d.opCodes.Lookup(opCode)
+		d.lines.SetSteps(d.opCode.Steps)
+	}
+	if !d.opCode.Virtual {
+		d.instrAddr = d.address
+	}
+	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
 }

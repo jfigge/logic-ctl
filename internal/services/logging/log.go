@@ -12,7 +12,7 @@ type Log struct {
 	history   *History
 	sync      sync.Mutex
 	activeLMs []activeLM
-	redraw  func()
+	redraw    func(bool)
 	debug     bool
 }
 type LogMessage struct {
@@ -23,9 +23,9 @@ type activeLM struct {
 	Message string
 	timer *time.Timer
 }
-func New(redraw func()) *Log {
+func New(redraw func(bool)) *Log {
 	return &Log{
-		history: &History{},
+		history: &History{ redraw: redraw, silence: true, sync: sync.Mutex{}},
 		redraw:  redraw,
 		debug:   false,
 	}
@@ -65,10 +65,10 @@ func (l *Log) Notify(text string, colour string) {
 				l.sync.Lock()
 				l.activeLMs = l.activeLMs[:len(l.activeLMs) - 1]
 				l.sync.Unlock()
-				l.redraw()
+				l.redraw(false)
 			})}}, l.activeLMs...)
 	l.sync.Unlock()
-	l.redraw()
+	l.redraw(false)
 }
 func (l *Log) NotifyLM(lm LogMessage) {
 	if lm.IsError {
@@ -143,6 +143,5 @@ func (l *Log) Dump() {
 }
 
 func (l *Log) HistoryViewer() common.UI {
-	l.history.initialize = true
 	return l.history
 }

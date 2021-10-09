@@ -148,6 +148,9 @@ func (t *Terminal) Cols() int {
 func StripFormatting(text string) string {
 	return string(rex.ReplaceAll([]byte(text), []byte{}))
 }
+func BinData(data uint8) string {
+	return fmt.Sprintf("%08b", data)
+}
 func HexData(data uint8) string {
 	return fmt.Sprintf("%s%s", HEX[data >> 4], HEX[data & 15])
 }

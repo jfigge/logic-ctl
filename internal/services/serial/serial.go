@@ -15,7 +15,6 @@ import (
 )
 
 type Serial struct {
-	sync 	     sync.Mutex
 	port         srl.Port
 	buffer       chan byte
 	address      chan []byte
@@ -23,95 +22,51 @@ type Serial struct {
 	data         chan byte
 	status       chan byte
 	terminated   bool
+	connected    bool
 	clock        *status.Clock
 	irq          *status.Irq
 	nmi          *status.Nmi
 	reset        *status.Reset
 	log          *logging.Log
-	setDirty     func()
-	setStatus    func(uint8)
+	connStatus   func(bool)
 	startCapture func()
 	stopCapture  func()
-	dirty        bool
-	initialize   bool
+	mode         *srl.Mode
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, setDirty func(), setStatus  func(uint8)) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, connStatus func(bool), wg *sync.WaitGroup) *Serial {
 	s := &Serial{
 		clock:        clock,
 		irq:          irq,
-		nmi:          nmi,
+		nmi:           nmi,
 		reset:        reset,
 		log:          log,
-		setDirty:     setDirty,
-		setStatus:    setStatus,
+		terminated:   false,
+		connected:    false,
+		connStatus:   connStatus,
+		buffer:       make(chan byte, 20),
+		address:      make(chan []byte, 20),
+		data:         make(chan byte, 20),
+		status:       make(chan byte, 20),
+		opCode:       make(chan byte, 20),
+		mode:         &srl.Mode {
+			DataBits: config.CLIConfig.Serial.DataBits,
+			BaudRate: config.CLIConfig.Serial.BaudRate,
+			StopBits: toStopBits(config.CLIConfig.Serial.StopBits),
+			Parity:   toParity(config.CLIConfig.Serial.Parity),
+		},
 	}
+
+	go s.driver(wg)
+	go s.portMonitor(wg)
+
 	return s
 }
 
-func (s *Serial) Connect(reconnect bool) bool {
-	s.sync.Lock()
-	defer s.sync.Unlock()
+func (s *Serial) Terminate() {
+	s.terminated = true
 	if s.port != nil {
-		if ok := s.Disconnect(); !ok {
-			return false
-		}
+		s.port.Close()
 	}
-
-	mode := &srl.Mode{
-		DataBits: config.CLIConfig.Serial.DataBits,
-		BaudRate: config.CLIConfig.Serial.BaudRate,
-		StopBits: toStopBits(config.CLIConfig.Serial.StopBits),
-		Parity:   toParity(config.CLIConfig.Serial.Parity),
-	}
-
-	var err error
-	if s.port, err = srl.Open(config.CLIConfig.Serial.PortName, mode); err != nil {
-		s.port = nil
-		if !reconnect {
-			s.log.Errorf("Failed to open USB port %s: %v", config.CLIConfig.Serial.PortName, err)
-		}
-		return false
-	}
-
-	// Wait for reset
-	time.Sleep(1500 * time.Millisecond)
-
-	s.terminated = false
-	s.buffer  = make(chan byte, 20)
-	s.address = make(chan []byte)
-	s.data    = make(chan byte)
-	s.status  = make(chan byte)
-	s.opCode  = make(chan byte)
-	go s.reader()
-	go s.driver()
-
-	s.log.Infof("Openned port %s", config.CLIConfig.Serial.PortName)
-	return true
-}
-func (s *Serial) Disconnect() bool {
-	s.sync.Lock()
-	defer s.sync.Unlock()
-
-	if s.port != nil {
-		s.terminated = true
-		if err := s.port.Close(); err != nil {
-			s.log.Errorf("Failed to close USB port %s: %v", config.CLIConfig.Serial.PortName, err)
-			return false
-		}
-		s.port = nil
-	}
-	s.log.Info("Port closed")
-	return true
-}
-func (s *Serial) Reconnect() bool {
-	s.Connect(true)
-	if s.IsConnected() {
-		return true
-	}
-	return false
-}
-func (s *Serial) IsConnected() bool {
-	return s.port != nil
 }
 
 func toStopBits(value int) srl.StopBits {
@@ -138,10 +93,8 @@ func toParity(value int) srl.Parity {
 }
 
 func (s *Serial) ReadAddress() (uint16, bool) {
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return 0, false
-		}
+	if !s.connected {
+		return 0, false
 	}
 
 	// Send command
@@ -154,15 +107,20 @@ func (s *Serial) ReadAddress() (uint16, bool) {
 	}
 
 	// Receive address
-	a := binary.LittleEndian.Uint16(<-s.address)
-	s.log.Tracef("Received address: %s", display.HexAddress(a))
+	a := uint16(0)
+	bs := make([]byte, 0, 2)
+	select {
+	case bs = <-s.address:
+		a = binary.LittleEndian.Uint16(bs)
+		s.log.Tracef("Received address: %s", display.HexAddress(a))
+	case <- time.After(5 * time.Second):
+		s.log.Warnf("Address not received")
+	}
 	return a, true
 }
 func (s *Serial) ReadOpCode() (uint8, bool) {
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return 0, false
-		}
+	if !s.connected {
+		return 0, false
 	}
 
 	// Send command
@@ -177,17 +135,16 @@ func (s *Serial) ReadOpCode() (uint8, bool) {
 	// Receive opCode
 	select {
 	case b := <-s.opCode:
+		s.log.Tracef("OpCode received %s", display.HexData(b))
 		return b, true
-	case <- time.After(10 * time.Second):
+	case <- time.After(5 * time.Second):
 		s.log.Warnf("OpCode not received")
 		return 0, false
 	}
 }
 func (s *Serial) ReadData() (uint8, bool) {
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return 0, false
-		}
+	if !s.connected {
+		return 0, false
 	}
 
 	// Send command
@@ -205,16 +162,14 @@ func (s *Serial) ReadData() (uint8, bool) {
 		e := <-s.data
 		s.log.Tracef("Received data: %s", display.HexData(b))
 		return b, e == 0
-	case <- time.After(10 * time.Second):
+	case <- time.After(5 * time.Second):
 		s.log.Warnf("Data not received")
 		return 0, false
 	}
 }
 func (s *Serial) ReadStatus() (uint8, bool) {
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return 0, false
-		}
+	if !s.connected {
+		return 0, false
 	}
 
 	// Send command
@@ -229,21 +184,17 @@ func (s *Serial) ReadStatus() (uint8, bool) {
 	// Receive status
 	select {
 		case b := <-s.status:
+			s.log.Tracef("Status received %s", display.BinData(b))
 			return b, true
-		case <- time.After(10 * time.Second):
-			s.log.Warnf("Flags not received")
+		case <- time.After(5 * time.Second):
+			s.log.Warnf("Status not received")
 			return 0, false
 	}
 }
 func (s *Serial) SetData(data uint8) bool {
-	s.sync.Lock()
-	defer s.sync.Unlock()
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return false
-		}
+	if !s.connected {
+		return false
 	}
-
 	// Send command
 	if n, err := s.port.Write([]byte{0x44,data,0x0A}); err != nil {
 		s.log.Errorf("Failed to send request to set data: %v", err)
@@ -258,14 +209,8 @@ func (s *Serial) SetData(data uint8) bool {
 	return e == 0
 }
 func (s *Serial) SetLines(data uint64) bool {
-	s.sync.Lock()
-	defer func() {
-		s.sync.Unlock()
-	}()
-	if s.port == nil {
-		if ok := s.Connect(true); !ok {
-			return false
-		}
+	if !s.connected {
+		return false
 	}
 
 	// Send command
@@ -281,7 +226,40 @@ func (s *Serial) SetLines(data uint64) bool {
 	return true
 }
 
-func (s *Serial) reader() {
+func (s *Serial) portMonitor(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer func() {
+		fmt.Println("PortMonitor Done")
+		wg.Done()
+	}()
+
+	var err error
+	tick := time.NewTicker(200 * time.Millisecond)
+	for !s.terminated {
+		select {
+		case <- tick.C:
+			if s.port == nil {
+				if s.port, err = srl.Open(config.CLIConfig.Serial.PortName, s.mode); err != nil {
+					s.port = nil
+					if s.connected {
+						s.connected = false
+						s.connStatus(false)
+					}
+				} else {
+					s.log.Infof("Opened port %s", config.CLIConfig.Serial.PortName)
+					if !s.connected {
+						s.connStatus(true)
+						s.connected = true
+					}
+					s.readPort()
+				}
+			}
+		}
+	}
+	tick.Stop()
+	close(s.buffer)
+}
+func (s *Serial) readPort() {
 	bs := make([]byte,1)
 	defer func() {
 		if r := recover(); r != nil {
@@ -290,9 +268,10 @@ func (s *Serial) reader() {
 	}()
 	for !s.terminated {
 		if n, err := s.port.Read(bs); err != nil {
-			s.log.Tracef("Read byte: %s", display.HexData(bs[0]))
-			s.Disconnect()
-			s.setDirty()
+			s.port.Close()
+			s.port = nil
+			s.log.Infof("Lost port %s", config.CLIConfig.Serial.PortName)
+			return
 		} else if n == 1 {
 			s.buffer <- bs[0]
 		} else {
@@ -301,58 +280,60 @@ func (s *Serial) reader() {
 	}
 	close(s.buffer)
 }
-func (s *Serial) driver() {
-	for  !s.terminated {
-		b := <- s.buffer
-		if b != byte(0) {
-			s.log.Tracef("Inbound data: %s", string(b))
-			switch b {
-			case 'a':
-				s.address <- []byte{<-s.buffer, <-s.buffer}
-			case 'd':
-				s.data <- <-s.buffer  // data
-				s.data <- <-s.buffer  // error code
-			case 'D':
-				s.data <- <-s.buffer  // error code
-			case 'o':
-				s.opCode <- <-s.buffer
-			case 's':
-				s.status <- <-s.buffer
-			case 'c':
-				s.clock.ClockLow()
-			case 'C':
-				s.clock.ClockHigh()
-			case 'i':
-				s.irq.IrqLow()
-			case 'I':
-				s.irq.IrqHigh()
-			case 'n':
-				s.nmi.NmiLow()
-			case 'N':
-				s.nmi.NmiHigh()
-			case 'r':
-				s.reset.ResetLow()
-			case 'R':
-				s.reset.ResetHigh()
-			default:
-				s.log.Debugf("Unknown byte: %v", display.HexData(b))
-				if _, e := s.port.GetModemStatusBits(); e != nil {
-					s.Disconnect()
-					s.terminated = true
-					return
-				}
-			}
+func (s *Serial) driver(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer func() {
+		fmt.Println("Driver Done")
+		wg.Done()
+	}()
+	b, ok := byte(0), true
+	for {
+		if b, ok = <- s.buffer; !ok {
+			break
+		}
+		s.log.Tracef("Inbound data: %s", string(b))
+		switch b {
+		case 'a':
+			s.address <- []byte{<-s.buffer, <-s.buffer}
+		case 'd':
+			s.data <- <-s.buffer  // data
+			s.data <- <-s.buffer  // error code
+			s.log.Tracef("Forwarding 'd' data complete")
+		case 'D':
+			s.data <- <-s.buffer  // error code
+			s.log.Tracef("Forwarding 'D' data complete")
+		case 'o':
+			s.opCode <- <-s.buffer
+			s.log.Tracef("Forwarding 'o' data complete")
+		case 's':
+			s.status <- <-s.buffer
+			s.log.Tracef("Forwarding 's' data complete")
+		case 'c':
+			s.clock.ClockLow()
+		case 'C':
+			s.clock.ClockHigh()
+		case 'i':
+			s.irq.IrqLow()
+		case 'I':
+			s.irq.IrqHigh()
+		case 'n':
+			s.nmi.NmiLow()
+		case 'N':
+			s.nmi.NmiHigh()
+		case 'r':
+			s.reset.ResetLow()
+		case 'R':
+			s.reset.ResetHigh()
+		default:
+			s.log.Warnf("Unknown byte: %v", display.HexData(b))
 		}
 	}
 	s.log.Warn("Stopped receiving")
 }
 
-func (s *Serial) Draw(t *display.Terminal, connected bool) {
-	if !s.dirty && !s.initialize {
-		return
-	}  else if s.initialize {
+func (s *Serial) Draw(t *display.Terminal, connected bool, initialize bool) {
+	if initialize {
 		t.Cls()
-		s.initialize = false
 	}
 	ports, err := srl.GetPortsList()
 	if err != nil {
@@ -372,18 +353,10 @@ func (s *Serial) Draw(t *display.Terminal, connected bool) {
 		}
 	}
 	t.PrintAtf(1, t.Rows(), "%sPress any key%s", common.Yellow, common.Reset)
-	s.dirty = false
 }
-func (s *Serial) SetDirty(initialize bool) {
-	s.dirty = true
-	if initialize {
-		s.initialize = true
-	}
-}
-func (s *Serial) Process(a int, k int, connected bool) bool {
+func (s *Serial) Process(input common.Input) bool {
 	return true
 }
 func (s *Serial) PortViewer() common.UI {
-	s.initialize = true
 	return s
 }

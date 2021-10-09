@@ -2,6 +2,7 @@ package instructionSet
 
 import (
 	"fmt"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 )
@@ -73,7 +74,7 @@ var (
 		/* EPROM 1a */ {"CTMR", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
 		/* EPROM 1b */ {"ALD0", ""}, {"ALD1", ""}, {"ALD2", ""}, {"DBRW", ""}, {"UNU1", "CIOV"}, {"PCIN", ""}, {"PCLL", ""}, {"PCLH", ""},
 		/* EPROM 2a */ {"ALLD", ""}, {"AHLD", ""}, {"SPLD", ""}, {"ALC2", ""}, {"ALC1", ""},     {"ALC0", ""}, {"CRST", ""}, {"AULB", ""},
-		/* EPROM 2b */ {"AULA", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO1", ""}, {"AUO2", ""}, {"AUS1", ""},
+		/* EPROM 2b */ {"AULA", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO2", ""}, {"AUO1", ""}, {"AUS1", ""},
 		/* EPROM 3a */ {"AUS2", ""}, {"AULR", ""}, {"SBLA", ""}, {"SBLY", ""}, {"SBLX", ""},     {"SBD0", ""}, {"SBD1", ""}, {"SBD2", ""},
 		/* EPROM 3b */ {"FSVA", ""}, {"FSIB", ""}, {"FSVB", ""}, {"FSCB", ""}, {"FSCA", ""},     {"FMAN", ""}, {"FSIA", ""}, {"CENB", ""},
 	}
@@ -137,7 +138,7 @@ var (
 	x = uint64(CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
 		CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 | CL_AULA | CL_AULB |
 		CL_AUS2 | CL_SBD2 | CL_SBD1 | CL_SBD0 | CL_SBLX | CL_SBLY | CL_SBLA)
-	Defaults = [2]uint64 {x, x ^ CL_CIOV }
+	Defaults = [2]uint64 {x, x ^ CL_CIOV}
 
 	OutputsDB  = map[uint64]string {
 		0:                           "None (0)",
@@ -217,25 +218,25 @@ type coord struct {
 }
 type ControlLines struct {
 	lines     []string
-	setDirty  func(bool)
 	xOffset   []int
 	yOffset   int
 	cursor    coord
 	terminal  *display.Terminal
 	log       *logging.Log
 	steps     int
+	redraw    func(bool)
 	setLine   func(step uint8, clock uint8, bit uint64, value uint8)
 }
-func NewControlLines(log *logging.Log, terminal *display.Terminal, setDirty func(bool),
-	                 setLine func(step uint8, clock uint8, bit uint64, value uint8)) *ControlLines {
+func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(bool),
+	setLine func(step uint8, clock uint8, bit uint64, value uint8)) *ControlLines {
 	l := ControlLines{
 		log:      log,
 		terminal: terminal,
 		cursor:   coord{1,1},
 		xOffset:  []int{8,9,11,12,14,15},
 		yOffset:  20,
-		setDirty: setDirty,
 		setLine:  setLine,
+		redraw:   redraw,
 	}
 
 	for i := 0; i < 48; i++ {
@@ -250,6 +251,7 @@ func (l *ControlLines) Up(n int) {
 	if l.cursor.y - n >= 1 {
 		l.cursor.y -= n
 		l.PositionCursor()
+		l.redraw(false)
 	} else {
 		l.terminal.Bell()
 	}
@@ -258,6 +260,7 @@ func (l *ControlLines) Down(n int) {
 	if l.cursor.y + n <= l.steps * 2 {
 		l.cursor.y += n
 		l.PositionCursor()
+		l.redraw(false)
 	} else {
 		l.terminal.Bell()
 	}
@@ -266,6 +269,7 @@ func (l *ControlLines) Left(n int) {
 	if l.cursor.x - n >= 1 {
 		l.cursor.x -= n
 		l.PositionCursor()
+		l.redraw(false)
 	} else {
 		l.terminal.Bell()
 	}
@@ -274,13 +278,13 @@ func (l *ControlLines) Right(n int) {
 	if l.cursor.x + n <= 48 {
 		l.cursor.x += n
 		l.PositionCursor()
+		l.redraw(false)
 	} else {
 		l.terminal.Bell()
 	}
 }
 func (l *ControlLines) PositionCursor() {
 	l.terminal.At(l.cursor.x + l.xOffset[(l.cursor.x-1)/8], l.cursor.y + l.yOffset)
-	l.setDirty(false)
 }
 func (l *ControlLines) CursorPosition() string {
 	return fmt.Sprintf("  %d,%d", l.cursor.x, l.cursor.y)
@@ -292,9 +296,9 @@ func (l *ControlLines) SetEditStep(y uint8) {
 	l.cursor.y = int(y)
 }
 
-func (l *ControlLines) KeyIntercept(a int, k int, connected bool) bool {
-	if k != 0 {
-		switch k {
+func (l *ControlLines) KeyIntercept(input common.Input) bool {
+	if input.KeyCode != 0 {
+		switch input.KeyCode {
 		case display.CursorUp:
 			l.Up(1)
 		case display.CursorDown:
@@ -309,13 +313,13 @@ func (l *ControlLines) KeyIntercept(a int, k int, connected bool) bool {
 		}
 	} else {
 		value := uint8(3)
-		switch a {
+		switch input.Ascii {
 		case '1', '0', 0x7F, ' ':
-			if a == '0' {
+			if input.Ascii == '0' {
 				value = 0
-			} else if a == '1' {
+			} else if input.Ascii == '1' {
 				value = 1
-			} else if a == 0x7F {
+			} else if input.Ascii == 0x7F {
 				value = 2
 			}
 			step  := uint8((l.cursor.y - 1) / 2)

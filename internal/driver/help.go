@@ -6,22 +6,16 @@ import (
 )
 
 type HelpPage struct {
-	dirty      bool
-	initialize bool
 }
 func NewHelpPage() *HelpPage {
 	return &HelpPage{}
 }
 func (h *HelpPage) Help() common.UI {
-	h.initialize = true
 	return h
 }
-func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
-	if !h.dirty && !h.initialize {
-		return
-	} else if h.initialize {
+func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
+	if initialize {
 		t.Cls()
-		h.initialize = false
 	}
 
 	t.PrintAtf( 1, 1, "%sData Bus%s", common.Yellow, common.Reset)
@@ -57,11 +51,11 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 
 	t.PrintAtf( 1,10, "%sKey mappings%s", common.Yellow, common.Reset)
 	t.PrintAtf( 1,10, "%sd%s Debug enabled%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(21,10, "%sc%s Copies line codes%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,10, "%sc%s Copies line lines%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,10, "%sf%s Toggle flag usage%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,10, "%sl%s Show log history%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf( 1,11, "%sD%s Debug disabled%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(21,11, "%sC%s Copies all codes%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,11, "%sC%s Copies all lines%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,11, "%sh%s Show this page%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,11, "%sp%s Show ports%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(81,11, "%sq%s Quit%s", common.Yellow, common.White, common.Reset)
@@ -72,21 +66,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool) {
 	t.PrintAtf(61,13, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
 
 	t.PrintAtf(1, t.Rows(), "%sPress any key to exit%s", common.Yellow, common.Reset)
-	h.dirty = false
 }
-func (h *HelpPage) SetDirty(initialize bool) {
-	h.dirty = true
-	if initialize {
-		h.initialize = true
-	}
-}
-func (h *HelpPage) Process(a int, k int, connected bool) bool {
-	if k != 0 {
-		switch k {
-		}
-	} else {
-		switch a {
-		}
-	}
+func (h *HelpPage) Process(keyboard common.Input) bool {
 	return true
 }

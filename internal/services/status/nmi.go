@@ -14,10 +14,10 @@ const (
 type Nmi struct {
 	state  uint8
 	log    *logging.Log
-	redraw func()
+	redraw func(bool)
 }
 
-func NewNmi(log *logging.Log, redraw func()) *Nmi {
+func NewNmi(log *logging.Log, redraw func(bool)) *Nmi {
 	return &Nmi{
 		log:    log,
 		redraw: redraw,
@@ -26,12 +26,12 @@ func NewNmi(log *logging.Log, redraw func()) *Nmi {
 
 func (n *Nmi) NmiHigh() {
 	n.state = 1
-	n.redraw()
+	n.redraw(false)
 }
 
 func (n *Nmi) NmiLow() {
 	n.state = 0
-	n.redraw()
+	n.redraw(false)
 }
 
 func (n *Nmi) NmiBlock() string {

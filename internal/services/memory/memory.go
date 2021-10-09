@@ -21,10 +21,10 @@ type Memory struct {
 	memory [65536]byte
 	lastAction  string
 	disassembly map[uint16] string
-	opCodes     *instructionSet.OperationCodes
+	opCodes     *instructionSet.OpCodes
 	log         *logging.Log
 }
-func New(log *logging.Log, opCodes *instructionSet.OperationCodes) *Memory {
+func New(log *logging.Log, opCodes *instructionSet.OpCodes) *Memory {
 	return &Memory{
 		lastAction: normal,
 		opCodes:    opCodes,
@@ -42,6 +42,8 @@ func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress int) bool 
 		for i := 0; i < memSize; i++ {
 			if i >= baseAddress && i - baseAddress < len(bs) {
 				m.memory[i] = bs[i - baseAddress]
+			} else if i == 0xfffd {
+				m.memory[i] = 0x80
 			} else {
 				m.memory[i] = 0
 			}

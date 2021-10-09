@@ -14,10 +14,10 @@ const (
 type Irq struct {
 	state  uint8
 	log    *logging.Log
-	redraw func()
+	redraw func(bool)
 }
 
-func NewIrq(log *logging.Log, redraw func()) *Irq {
+func NewIrq(log *logging.Log, redraw func(bool)) *Irq {
 	return &Irq{
 		log:    log,
 		redraw: redraw,
@@ -26,12 +26,12 @@ func NewIrq(log *logging.Log, redraw func()) *Irq {
 
 func (i *Irq) IrqHigh() {
 	i.state = 1
-	i.redraw()
+	i.redraw(false)
 }
 
 func (i *Irq) IrqLow() {
 	i.state = 0
-	i.redraw()
+	i.redraw(false)
 }
 
 func (i *Irq) IrqBlock() string {

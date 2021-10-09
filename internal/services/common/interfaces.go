@@ -5,11 +5,16 @@ import (
 )
 
 type UI interface {
-	Draw(t *display.Terminal, connected bool)
-	SetDirty(initialize bool)
-	Process(ascii int, keyCode int, connected bool) bool
+	Draw(t *display.Terminal, connected bool, initialize bool)
+	Process(input Input) bool
 }
 
 type Intercept interface {
-	KeyIntercept(ascii int, keyCode int, connected bool) bool
+	KeyIntercept(input Input) bool
+}
+
+type Input struct {
+	Ascii     int
+	KeyCode   int
+	Connected bool
 }

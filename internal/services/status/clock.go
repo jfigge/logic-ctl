@@ -13,10 +13,10 @@ const (
 
 type Clock struct {
 	state  uint8
-	tick   func()
+	tick   func(bool)
 	log    *logging.Log
 }
-func NewClock(log *logging.Log, tick func()) *Clock {
+func NewClock(log *logging.Log, tick func(bool)) *Clock {
 	return &Clock{
 		log:    log,
 		tick:   tick,
@@ -24,12 +24,14 @@ func NewClock(log *logging.Log, tick func()) *Clock {
 }
 
 func (c *Clock) ClockHigh() {
+	phaseChange := c.state == 0
 	c.state = 1
-	c.tick()
+	c.tick(phaseChange)
 }
 func (c *Clock) ClockLow() {
+	phaseChange := c.state == 1
 	c.state = 0
-	c.tick()
+	c.tick(phaseChange)
 }
 func (c *Clock) CurrentState() uint8 {
 	return c.state

@@ -14,9 +14,9 @@ const (
 type Reset struct {
 	state  uint8
 	log    *logging.Log
-	redraw func()
+	redraw func(bool)
 }
-func NewReset(log *logging.Log, redraw func()) *Reset {
+func NewReset(log *logging.Log, redraw func(bool)) *Reset {
 	return &Reset{
 		log:    log,
 		redraw: redraw,
@@ -25,11 +25,11 @@ func NewReset(log *logging.Log, redraw func()) *Reset {
 
 func (r *Reset) ResetHigh() {
 	r.state = 1
-	r.redraw()
+	r.redraw(false)
 }
 func (r *Reset) ResetLow() {
 	r.state = 0
-	r.redraw()
+	r.redraw(false)
 }
 
 func (r *Reset) ResetBlock() string {
