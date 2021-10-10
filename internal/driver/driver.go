@@ -176,9 +176,9 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 		d.UIs = append([]common.UI{d.errorPage.ErrorViewer(str)}, d.UIs...)
 		d.redraw(true)
 	}
-	bs := make([]byte, 3)
+	bs := make([]byte, 5)
 
-	if err := x.SetReadTimeout(5 * time.Second); err != nil {
+	if err := x.SetReadTimeout(20 * time.Second); err != nil {
 		d.log.Warn("Failed to set read timeout")
 	}
 	if numRead, err := x.Read(bs); err != nil {
@@ -212,7 +212,11 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	} else if numRead == 1 {
 		ascii = int(bs[0])
 	} else {
-		d.log.Warn("Two character read unexpected")
+		text := fmt.Sprintf("%d characters read.", numRead)
+		for i := 0; i < numRead; i++ {
+			text = fmt.Sprintf("%s %d:%s", text, i, display.HexData(bs[i]))
+		}
+		d.log.Warnf(text)
 		// Two characters read??
 	}
 	return
