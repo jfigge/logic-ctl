@@ -20,7 +20,7 @@ import (
 
 
 type Driver struct {
-	instrAddr    uint16
+	instrAddr   uint16
 	address     uint16
 	opCode      *instructionSet.OpCode
 	display     *display.Terminal
@@ -78,10 +78,10 @@ func New() *Driver {
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
 	d.keyIntercept = append(d.keyIntercept, d.lines)
-	d.dispChan     = make(chan bool, 20)
-	d.monitorChan  = make(chan bool, 20)
-	d.clockChan    = make(chan bool, 20)
-	d.inputChan    = make(chan common.Input, 20)
+	d.dispChan     = make(chan bool)
+	d.monitorChan  = make(chan bool)
+	d.clockChan    = make(chan bool)
+	d.inputChan    = make(chan common.Input)
 	return &d
 }
 
@@ -487,6 +487,8 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		d.step.SetStep(state)
 		d.flags.SetFlags(state)
 	} else {
+		d.log.Errorf("Failed to read status during tick")
+		d.ResetChannels()
 		return
 	}
 
@@ -494,6 +496,8 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		if opCode, ok := d.serial.ReadOpCode(); ok {
 			d.SetOpCode(opCode)
 		} else {
+			d.log.Errorf("Failed to read OpCode during tick")
+			d.ResetChannels()
 			return
 		}
 	}
@@ -513,17 +517,29 @@ func (d *Driver) tickFunc(phaseChange bool) {
 	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {
 		d.SetAddress(address)
+	} else {
+		d.log.Errorf("Failed to retrieve address")
+		d.ResetChannels()
+		return
 	}
 
 	if d.clock.CurrentState() == instructionSet.PHI1 || lines & instructionSet.CL_DBRW != 0 {
 		if data, ok := d.memory.ReadMemory(d.address); ok {
 			d.serial.SetData(data)
+		} else {
+			d.log.Errorf("Failed to read memory address %s during tick", display.HexAddress(d.address))
+			return
 		}
 	} else {
 		if data, ok := d.serial.ReadData(); ok {
-			if ok := d.memory.WriteMemory(d.address, data); !ok {
+			if ok = d.memory.WriteMemory(d.address, data); !ok {
 				d.log.Warnf("Failed to write %s @ %s", display.HexAddress(d.address), display.HexData(data))
+				return
 			}
+		} else {
+			d.log.Errorf("Failed to read data during tick")
+			d.ResetChannels()
+			return
 		}
 	}
 
@@ -540,4 +556,17 @@ func (d *Driver) SetOpCode(opCode uint8) {
 		d.instrAddr = d.address
 	}
 	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
+}
+func (d *Driver) ResetChannels() {
+	for {
+		select {
+		case <-d.dispChan:
+		case <-d.monitorChan:
+		case <-d.clockChan:
+		case <-d.inputChan:
+		default:
+			d.serial.ResetChannels()
+			return
+		}
+	}
 }

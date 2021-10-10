@@ -43,11 +43,11 @@ func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi
 		terminated:   false,
 		connected:    false,
 		connStatus:   connStatus,
-		buffer:       make(chan byte, 20),
-		address:      make(chan []byte, 20),
-		data:         make(chan byte, 20),
-		status:       make(chan byte, 20),
-		opCode:       make(chan byte, 20),
+		buffer:       make(chan byte),
+		address:      make(chan []byte),
+		data:         make(chan byte),
+		status:       make(chan byte),
+		opCode:       make(chan byte),
 		mode:         &srl.Mode {
 			DataBits: config.CLIConfig.Serial.DataBits,
 			BaudRate: config.CLIConfig.Serial.BaudRate,
@@ -115,6 +115,7 @@ func (s *Serial) ReadAddress() (uint16, bool) {
 		s.log.Tracef("Received address: %s", display.HexAddress(a))
 	case <- time.After(5 * time.Second):
 		s.log.Warnf("Address not received")
+		return 0, false
 	}
 	return a, true
 }
@@ -329,6 +330,22 @@ func (s *Serial) driver(wg *sync.WaitGroup) {
 		}
 	}
 	s.log.Warn("Stopped receiving")
+}
+func (s *Serial) ResetChannels() {
+	for {
+		select {
+		case <-s.buffer:
+		case <-s.address:
+		case <-s.opCode:
+		case <-s.data:
+		case <-s.status:
+		default:
+			if s.port != nil {
+				s.port.Close()
+			}
+			return
+		}
+	}
 }
 
 func (s *Serial) Draw(t *display.Terminal, connected bool, initialize bool) {
