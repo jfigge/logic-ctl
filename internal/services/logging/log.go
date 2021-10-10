@@ -21,7 +21,8 @@ type LogMessage struct {
 }
 type activeLM struct {
 	Message string
-	timer *time.Timer
+	timer   *time.Timer
+	visible bool
 }
 func New(redraw func(bool)) *Log {
 	return &Log{
@@ -59,14 +60,21 @@ func (l *Log) Notify(text string, colour string) {
 
 	l.sync.Lock()
 	l.activeLMs = append(
-		[]activeLM{activeLM{
-			Message: str,
-			timer: time.AfterFunc(5 * time.Second, func() {
-				l.sync.Lock()
-				l.activeLMs = l.activeLMs[:len(l.activeLMs) - 1]
-				l.sync.Unlock()
-				l.redraw(false)
-			})}}, l.activeLMs...)
+		[]activeLM{
+			{
+				Message: str,
+				timer: time.AfterFunc(5*time.Second, func() {
+					isVisible := l.activeLMs[len(l.activeLMs)-1].visible
+					l.sync.Lock()
+					l.activeLMs = l.activeLMs[:len(l.activeLMs)-1]
+					l.sync.Unlock()
+					if isVisible {
+						l.redraw(false)
+					}
+				}),
+				visible: true,
+			},
+		}, l.activeLMs...)
 	l.sync.Unlock()
 	l.redraw(false)
 }
@@ -126,17 +134,21 @@ func (l *Log) Error(text string) {
 	l.Notify(text, common.BrightRed)
 }
 
-func (l *Log) LogBlock() []string {
+func (l *Log) LogBlock(max int) []string {
 	var tmp []string
 	l.sync.Lock()
 	defer l.sync.Unlock()
-	for _, alm := range l.activeLMs {
-		tmp = append(tmp, alm.Message)
+	for i, alm := range l.activeLMs {
+		if i < max {
+			tmp = append(tmp, alm.Message)
+		} else {
+			alm.visible = false
+		}
 	}
 	return tmp
 }
 func (l *Log) Dump() {
-	lines := l.LogBlock()
+	lines := l.LogBlock(len(l.activeLMs))
 	for i := len(lines) -1; i >= 0; i-- {
 		fmt.Printf("%s\n", lines[i])
 	}

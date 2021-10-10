@@ -269,17 +269,34 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
 func (d *Driver) redraw(clearScreen bool) {
 	if len(d.UIs) > 0 {
-		d.dispChan <- clearScreen
+		// Pull any previous requires
+		previous := false
+		if clearScreen {}
+			select {
+			case previous = <- d.dispChan:
+			default:
+		}
+		// Write back the higher of the requested or previous value
+		d.dispChan <- clearScreen || previous
 	}
 }
 func (d *Driver) connectionStatus(connected bool) {
+	// Remove any previous value before it can be read
+	select {
+	case <-d.monitorChan:
+	default: // don't block if there is no value
+	}
+
+	// Push the current connected status
 	d.monitorChan <- connected
 }
 func (d *Driver) tick(phaseChange bool) {
-	select {
-	case d.clockChan <- phaseChange:
-	default:
-		d.log.Debug("Tick ignored. phase change already queued")
+	if phaseChange {
+		select {
+		case d.clockChan <- true:
+		default:
+			d.log.Debug("Tick ignored. phase change already queued")
+		}
 	}
 }
 
@@ -404,11 +421,8 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 	d.display.PrintAt(d.display.Cols() - len(str), 1, str)
 
 	// Notifications
-	lines = d.log.LogBlock()
 	max := d.display.Rows() - offset
-	if len(lines) > max {
-		lines = lines[:max]
-	}
+	lines = d.log.LogBlock(max)
 	for i := 0; i < max; i++ {
 		line := display.ClearLine
 		if i < len(lines) {
