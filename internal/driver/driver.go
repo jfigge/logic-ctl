@@ -276,7 +276,11 @@ func (d *Driver) connectionStatus(connected bool) {
 	d.monitorChan <- connected
 }
 func (d *Driver) tick(phaseChange bool) {
-	d.clockChan <- phaseChange
+	select {
+	case d.clockChan <- phaseChange:
+	default:
+		d.log.Debug("Tick ignored. phase change already queued")
+	}
 }
 
 func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
