@@ -605,7 +605,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// LDA LOBYTE,X
 		// PHA
 		// RTS
-		0x60 : mop(IMP, "RTS", "", 0x60, 1, 6, false, 0),
+		0x60 : rts(mop(IMP, "RTS", "", 0x60, 1, 5, false, 0)),
 
 
 		// SBC (SuBtract with Carry)
@@ -877,6 +877,7 @@ func jsr() *OpCode {
 	}
 	return oc
 }
+
 func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, steps uint8, pageCross bool, flags uint8) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = addrMode
@@ -968,6 +969,20 @@ func logic(oc *OpCode,aluOp uint64, aluA uint64) *OpCode {
 		case IZX:
 		case IZY:
 		}
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func rts(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][0][PHI1] ^= CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_AUSA
+		oc.Lines[flags][0][PHI2] ^= CL_AULA | CL_CENB
+		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD2
+		oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_PCLL | CL_AULA | CL_CENB
+		oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_SPLD | CL_SBD2
+		oc.Lines[flags][2][PHI2] ^= CL_AHD0 | CL_PCLH
+		oc.Lines[flags][3][PHI1] ^= 0
+		oc.Lines[flags][3][PHI2] ^= CL_PCIN
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1112,10 +1127,10 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 		if clock != PHI1 {
 			return "Address bus high can only be loaded on phi-1", false
 		}
-	case CL_AULA:
-		if clock != PHI1 {
-		return "ALU A register can only be loaded on phi-1", false
-	}
+//	case CL_AULA:
+//		if clock != PHI1 {
+//			return "ALU A register can only be loaded on phi-1", false
+//		}
 	case CL_AULB:
 		if clock != PHI1 {
 			return "ALU B register can only be loaded on phi-1", false

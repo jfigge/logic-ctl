@@ -261,7 +261,7 @@ func (s *Serial) portMonitor(wg *sync.WaitGroup) {
 	close(s.buffer)
 }
 func (s *Serial) readPort() {
-	bs := make([]byte,1)
+	bs := make([]byte,100)
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.Errorf("Recovered Read panic: %v", r)
@@ -273,10 +273,12 @@ func (s *Serial) readPort() {
 			s.port = nil
 			s.log.Infof("Lost port %s", config.CLIConfig.Serial.PortName)
 			return
-		} else if n == 1 {
-			s.buffer <- bs[0]
 		} else {
-			s.log.Warnf("Unexpected number of bytes received: Wanted 1, Received %d", n)
+			for i := 0; i < n; i++ {
+				s.buffer <- bs[i]
+				bs[i] = 0
+			}
+			//s.log.Warnf("Unexpected number of bytes received: Wanted 1, Received %d", n)
 		}
 	}
 	close(s.buffer)

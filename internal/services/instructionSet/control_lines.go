@@ -178,18 +178,18 @@ var (
 	}
 
 	AluA = map[uint64]string{
-		0: "Special Bus",
+		0: "Special Bus*",
 		CL_AUSA: "Zeros",
 	}
 	AluB = map[uint64]string{
-		0 :      "Data bus",
+		0 :      "Data bus*",
 		CL_AUSB: "Address bus low",
 	}
 	AluOp = map[uint64]string{
 		0 :                                    "Logical Shift",
 		CL_AUS1:                               "Rotation Shift",
 		CL_AUS2:                               "Arithmetic Shift",
-		CL_AUS1 | CL_AUS2:                     "Add",
+		CL_AUS1 | CL_AUS2:                     "Add*",
 		CL_AUS1 | CL_AUS2 | CL_AUO1:           "OR",
 		CL_AUS1 | CL_AUS2 | CL_AUO2:           "AND",
 		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: "XOR",

@@ -22,6 +22,7 @@ import (
 type Driver struct {
 	instrAddr   uint16
 	address     uint16
+	buses       [7]uint64
 	opCode      *instructionSet.OpCode
 	display     *display.Terminal
 	clock       *status.Clock
@@ -61,6 +62,7 @@ func New() *Driver {
 	}
 
 	d.wg           = &sync.WaitGroup{}
+	d.buses        = [7]uint64 {1, 6, 7, 7, 0, 3, 0}
 	d.ignoreFlags  = true
 	d.UIs          = append(d.UIs, &d)
 	d.errorPage    = NewErrorPage()
@@ -93,6 +95,7 @@ func (d *Driver) Run() {
 		d.log.Dump()
 		os.Exit(1)
 	}
+
 	d.dispChan <- true
 
 	for len(d.UIs) > 0 {
@@ -196,18 +199,18 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 
 		// Since there are no ASCII lines for arrow keys, we use
 		// Javascript key lines.
-		if bs[2] == 65 {
-			// Up
-			keyCode = 38
-		} else if bs[2] == 66 {
-			// Down
-			keyCode = 40
-		} else if bs[2] == 67 {
-			// Right
-			keyCode = 39
-		} else if bs[2] == 68 {
-			// Left
-			keyCode = 37
+		switch bs[2] {
+			case 65: keyCode = 38 // Up
+			case 66: keyCode = 40 // Down
+			case 67: keyCode = 39 // Right
+			case 68: keyCode = 37 // Left
+		}
+	} else if numRead == 3 && bs[0] == 0x1B && bs[1] == 0x4F {
+		switch bs[2] {
+			case 50: keyCode = 101 // Option+1
+			case 51: keyCode = 102 // Option+2
+			case 52: keyCode = 102 // Option+3
+			case 53: keyCode = 103 // Option+4
 		}
 	} else if numRead == 1 {
 		ascii = int(bs[0])
@@ -295,12 +298,10 @@ func (d *Driver) connectionStatus(connected bool) {
 	d.monitorChan <- connected
 }
 func (d *Driver) tick(phaseChange bool) {
-	if phaseChange {
-		select {
-		case d.clockChan <- true:
-		default:
-			d.log.Debug("Tick ignored. phase change already queued")
-		}
+	select {
+	case d.clockChan <- phaseChange:
+	default:
+		d.log.Debug("Tick ignored. phase change already queued")
 	}
 }
 
@@ -354,7 +355,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	// Instructions
 	t.PrintAtf(58, 7, "%sInstructions", common.Yellow)
-	lines = d.memory.InstructionBlock(d.instrAddr)
+	lines = d.memory.InstructionBlock(d.instrAddr, d.address)
 	for i := 0; i < 11; i++ {
 		if i < len(lines) {
 			t.PrintAt(55, 8+i, lines[uint16(i)])
@@ -446,9 +447,22 @@ func (d *Driver) Process(input common.Input) bool {
 		}
 	}
 	if input.KeyCode != 0 {
-		d.log.Warnf("Unknown code: [%v]", input.KeyCode)
+		switch input.KeyCode {
+		case 101:
+		case 102:
+		case 103:
+		case 104:
+		default:
+			d.log.Warnf("Unknown code: [%v]", input.KeyCode)
+		}
 	} else {
 		switch input.Ascii {
+		case 'a':
+			if address, ok := d.serial.ReadAddress(); ok {
+				d.log.Infof("Read address: %s", display.HexAddress(address))
+			} else {
+				d.log.Warn("Failed to read address")
+			}
 		case 'f':
 			d.ignoreFlags = !d.ignoreFlags
 			d.redraw(true)
@@ -514,7 +528,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		return
 	}
 
-	if d.opCode == nil || d.step.CurrentStep() == 0 && d.clock.CurrentState() == 0 {
+	if d.opCode == nil || (d.step.CurrentStep() == 0 && d.clock.CurrentState() == 0) {
 		if opCode, ok := d.serial.ReadOpCode(); ok {
 			d.SetOpCode(opCode)
 		} else {
