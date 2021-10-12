@@ -213,14 +213,11 @@ var (
 	}
 )
 
-type coord struct {
-	x,y int
-}
 type ControlLines struct {
 	lines     []string
 	xOffset   []int
 	yOffset   int
-	cursor    coord
+	cursor    common.Coord
 	terminal  *display.Terminal
 	log       *logging.Log
 	steps     int
@@ -232,7 +229,7 @@ func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(b
 	l := ControlLines{
 		log:      log,
 		terminal: terminal,
-		cursor:   coord{1,1},
+		cursor:   common.Coord{X:1,Y:1},
 		xOffset:  []int{8,9,11,12,14,15},
 		yOffset:  20,
 		setLine:  setLine,
@@ -248,8 +245,8 @@ func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(b
 }
 
 func (l *ControlLines) Up(n int) {
-	if l.cursor.y - n >= 1 {
-		l.cursor.y -= n
+	if l.cursor.Y - n >= 1 {
+		l.cursor.Y -= n
 		l.PositionCursor()
 		l.redraw(false)
 	} else {
@@ -257,8 +254,8 @@ func (l *ControlLines) Up(n int) {
 	}
 }
 func (l *ControlLines) Down(n int) {
-	if l.cursor.y + n <= l.steps * 2 {
-		l.cursor.y += n
+	if l.cursor.Y + n <= l.steps * 2 {
+		l.cursor.Y += n
 		l.PositionCursor()
 		l.redraw(false)
 	} else {
@@ -266,8 +263,8 @@ func (l *ControlLines) Down(n int) {
 	}
 }
 func (l *ControlLines) Left(n int) {
-	if l.cursor.x - n >= 1 {
-		l.cursor.x -= n
+	if l.cursor.X - n >= 1 {
+		l.cursor.X -= n
 		l.PositionCursor()
 		l.redraw(false)
 	} else {
@@ -275,8 +272,8 @@ func (l *ControlLines) Left(n int) {
 	}
 }
 func (l *ControlLines) Right(n int) {
-	if l.cursor.x + n <= 48 {
-		l.cursor.x += n
+	if l.cursor.X + n <= 48 {
+		l.cursor.X += n
 		l.PositionCursor()
 		l.redraw(false)
 	} else {
@@ -284,16 +281,16 @@ func (l *ControlLines) Right(n int) {
 	}
 }
 func (l *ControlLines) PositionCursor() {
-	l.terminal.At(l.cursor.x + l.xOffset[(l.cursor.x-1)/8], l.cursor.y + l.yOffset)
+	l.terminal.At(l.cursor.X + l.xOffset[(l.cursor.X-1)/8], l.cursor.Y + l.yOffset)
 }
 func (l *ControlLines) CursorPosition() string {
-	return fmt.Sprintf("  %d,%d", l.cursor.x, l.cursor.y)
+	return fmt.Sprintf("  %d,%d", l.cursor.X, l.cursor.Y)
 }
 func (l *ControlLines) EditStep() uint8 {
-	return uint8(l.cursor.y)
+	return uint8(l.cursor.Y)
 }
 func (l *ControlLines) SetEditStep(y uint8) {
-	l.cursor.y = int(y)
+	l.cursor.Y = int(y)
 }
 
 func (l *ControlLines) KeyIntercept(input common.Input) bool {
@@ -322,9 +319,9 @@ func (l *ControlLines) KeyIntercept(input common.Input) bool {
 			} else if input.Ascii == 0x7F {
 				value = 2
 			}
-			step  := uint8((l.cursor.y - 1) / 2)
-			clock := uint8((l.cursor.y - 1) % 2)
-			bit   := uint64(47 - (l.cursor.x - 1) % 64)
+			step  := uint8((l.cursor.Y - 1) / 2)
+			clock := uint8((l.cursor.Y - 1) % 2)
+			bit   := uint64(47 - (l.cursor.X - 1) % 64)
 			l.setLine(step, clock, bit, value)
 		default:
 			// key not processed
@@ -336,7 +333,7 @@ func (l *ControlLines) KeyIntercept(input common.Input) bool {
 }
 
 func (l *ControlLines) LineNamesBlock(clock uint8) []string {
-	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.x - 1][clock], display.ClearEnd)}
+	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.X - 1][clock], display.ClearEnd)}
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)

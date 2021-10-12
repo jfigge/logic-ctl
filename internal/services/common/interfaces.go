@@ -11,10 +11,16 @@ type UI interface {
 
 type Intercept interface {
 	KeyIntercept(input Input) bool
+	CursorPosition() string
+	PositionCursor()
 }
 
 type Input struct {
 	Ascii     int
 	KeyCode   int
 	Connected bool
+}
+
+type Coord struct {
+	X,Y int
 }

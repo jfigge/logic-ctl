@@ -18,7 +18,6 @@ import (
 	"time"
 )
 
-
 type Driver struct {
 	instrAddr   uint16
 	address     uint16
@@ -47,6 +46,7 @@ type Driver struct {
 	keyIntercept []common.Intercept
 	ignoreFlags  bool
 	wg           *sync.WaitGroup
+	editor       int
 }
 func New() *Driver {
 	d := Driver{}
@@ -71,15 +71,16 @@ func New() *Driver {
 	d.step         = status.NewSteps(d.log)
 	d.flags        = status.NewFlags(d.log)
 	d.opCodes      = instructionSet.New(d.log)
-	d.memory       = memory.New(d.log, d.opCodes)
 	d.clock        = status.NewClock(d.log, d.tick)
+	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.irq          = status.NewIrq(d.log, d.redraw)
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
-	d.keyIntercept = append(d.keyIntercept, d.lines)
+	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory)
+	d.editor       = 0
 	d.dispChan     = make(chan bool)
 	d.monitorChan  = make(chan bool)
 	d.clockChan    = make(chan bool)
@@ -422,8 +423,8 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 	t.PrintAtf(85, 17, "%sDir: %s%-10s%s", common.Yellow, common.White, AluOperations[3], display.ClearEnd)
 
 	// X and Y coordinates of cursor
-	str := d.lines.CursorPosition()
-	d.display.PrintAt(d.display.Cols() - len(str), 1, str)
+	str := d.keyIntercept[d.editor].CursorPosition()
+	d.display.PrintAt(d.display.Cols()-len(str), 1, str)
 
 	// Notifications
 	max := d.display.Rows() - offset
@@ -437,15 +438,14 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 	}
 
 	// Restore cursor position
-	d.lines.PositionCursor()
+	d.keyIntercept[d.editor].PositionCursor()
 	d.display.ShowCursor()
 }
 func (d *Driver) Process(input common.Input) bool {
-	for _, ki := range d.keyIntercept {
-		if ki.KeyIntercept(input) {
-			return false
-		}
+	if d.editor >= 0 && d.editor < len(d.keyIntercept) && d.keyIntercept[d.editor].KeyIntercept(input) {
+		return false
 	}
+
 	if input.KeyCode != 0 {
 		switch input.KeyCode {
 		case 101:
@@ -510,6 +510,13 @@ func (d *Driver) Process(input common.Input) bool {
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
 			d.redraw(true)
+		case '\t':
+			if d.editor + 1 >= len(d.keyIntercept) {
+				d.editor = 0
+			} else {
+				d.editor += 1
+			}
+			d.redraw(false)
 		default:
 			d.log.Warnf("Unmapped ascii code: [%c]", input.Ascii)
 		}

@@ -1,12 +1,14 @@
 package memory
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"io/ioutil"
+	"strings"
 )
 
 const (
@@ -25,18 +27,36 @@ var colorSet = [][]interface{}{
 	}
 
 type Memory struct {
-	memory [65536]byte
-	lastAction  string
-	disassembly map[uint16]string
-	opCodes     *instructionSet.OpCodes
-	log         *logging.Log
-	baseAddress uint16
+	memory         [65536]byte
+	lastAction     string
+	disassembly    map[uint16]string
+	opCodes        *instructionSet.OpCodes
+	log            *logging.Log
+	baseAddress    uint16
+	displayAddress uint16
+	terminal       *display.Terminal
+	xOffset        []int
+	yOffset        []int
+	cursor         common.Coord
+	redraw         func(bool)
+	inputMode      bool
+	input          string
+	lastInput      byte
+	lastAddress    uint16
+	hasLastInput   bool
 }
-func New(log *logging.Log, opCodes *instructionSet.OpCodes) *Memory {
+
+func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Terminal, redraw func(bool)) *Memory {
 	return &Memory{
-		lastAction: normal,
-		opCodes:    opCodes,
-		log: log,
+		lastAction:  normal,
+		opCodes:     opCodes,
+		log:         log,
+		terminal:    terminal,
+		xOffset:     []int{5, 6},
+		yOffset:     []int{2, 3},
+		cursor:      common.Coord{X:0, Y:0},
+		input:       "xx",
+		redraw:      redraw,
 	}
 }
 
@@ -167,6 +187,10 @@ func (m *Memory) WriteMemory(address uint16, data byte) bool {
 func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	// Round down to nearest block
 	start := address - address % 256
+	if m.displayAddress != start {
+		m.hasLastInput = false
+		m.displayAddress = start
+	}
 	lines = append(lines, common.Yellow+ "     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F" +common.Reset)
 
 	colour, lastColour, line := normal, "", ""
@@ -179,7 +203,13 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 				colour = m.lastAction
 			}
 			if colour == lastColour { colour = "" } else { lastColour = colour }
-			line += fmt.Sprintf("%s%s ", colour, display.HexData(m.memory[start]))
+			value := display.HexData(m.memory[start])
+			if m.inputMode && m.cursor.X == j && m.cursor.Y == i {
+				lastColour = common.BrightRed
+				colour = common.BrightRed
+				value = (m.input + "__")[:2]
+			}
+			line += fmt.Sprintf("%s%s ", colour, value)
 			if j == 7 {
 				line += " "
 			}
@@ -225,4 +255,99 @@ func (m *Memory) InstructionBlock(instrAddr, address uint16) (lines []string) {
 		}
 	}
 	return
+}
+
+func (m *Memory) Up(n int) {
+	if m.cursor.Y - n >= 0 {
+		m.cursor.Y -= n
+		m.PositionCursor()
+		m.redraw(false)
+	} else {
+		m.terminal.Bell()
+	}
+}
+func (m *Memory) Down(n int) {
+	if m.cursor.Y + n <= 15 {
+		m.cursor.Y += n
+		m.PositionCursor()
+		m.redraw(false)
+	} else {
+		m.terminal.Bell()
+	}
+}
+func (m *Memory) Left(n int) {
+	if m.cursor.X - n >= 0 {
+		m.cursor.X -= n
+		m.PositionCursor()
+		m.redraw(false)
+	} else {
+		m.terminal.Bell()
+	}
+}
+func (m *Memory) Right(n int) {
+	if m.cursor.X + n <= 15 {
+		m.cursor.X += n
+		m.PositionCursor()
+		m.redraw(false)
+	} else {
+		m.terminal.Bell()
+	}
+}
+func (m *Memory) PositionCursor() {
+	m.terminal.At(m.cursor.X * 3 + m.xOffset[(m.cursor.X)/8] +len(m.input), m.cursor.Y + m.yOffset[(m.cursor.Y)/8])
+}
+func (m *Memory) CursorPosition() string {
+	return display.HexAddress(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16))
+}
+func (m *Memory) KeyIntercept(input common.Input) bool {
+	if input.KeyCode != 0 && !m.inputMode {
+		switch input.KeyCode {
+		case display.CursorUp:
+			m.Up(1)
+		case display.CursorDown:
+			m.Down(1)
+		case display.CursorLeft:
+			m.Left(1)
+		case display.CursorRight:
+			m.Right(1)
+		default:
+			// keycode not processed
+			return false
+		}
+	} else {
+		switch input.Ascii {
+		case '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','A','B','C','D','E','F':
+			m.input += strings.ToUpper(string(input.Ascii))
+			if len(m.input) == 2 {
+				bs, _ := hex.DecodeString(m.input)
+				m.lastAddress = m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16)
+				m.lastInput = m.memory[m.lastAddress]
+				m.memory[m.lastAddress] = bs[0]
+				m.inputMode = false
+				m.hasLastInput = true
+			}
+			m.redraw(false)
+		case 13:
+			if !m.inputMode {
+				m.input = ""
+				m.inputMode = true
+				m.redraw(false)
+			}
+		case 26:
+			if m.inputMode {
+				m.inputMode = false
+			} else if m.hasLastInput {
+				m.memory[m.lastAddress] = m.lastInput
+			}
+			m.redraw(false)
+		case 27:
+			m.inputMode = false
+			m.redraw(false)
+		default:
+			// key not processed
+			return false
+		}
+	}
+	// key processed
+	return true
 }

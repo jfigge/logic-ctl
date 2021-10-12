@@ -54,6 +54,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
 	t.PrintAtf(21,10, "%sc%s Copies line lines%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,10, "%sf%s Toggle flag usage%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,10, "%sl%s Show log history%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(81,10, "%stab%s Toggle editors%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf( 1,11, "%sD%s Debug disabled%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21,11, "%sC%s Copies all lines%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,11, "%sh%s Show this page%s", common.Yellow, common.White, common.Reset)
