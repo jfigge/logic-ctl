@@ -409,9 +409,9 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	// Bus Content
 	t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
-	t.PrintAtf(85,  8, "%sADH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
+	t.PrintAtf(85,  8, "%sABH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
 	t.PrintAtf(86,  9, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
-	t.PrintAtf(85, 10, "%sADL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
+	t.PrintAtf(85, 10, "%sABL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
 	t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
 
 	// ALU Operation

@@ -161,7 +161,7 @@ func (s *Serial) ReadData() (uint8, bool) {
 	select {
 	case b := <-s.data:
 		e := <-s.data
-		s.log.Tracef("Received data: %s", display.HexData(b))
+		s.log.Tracef("Received data: %s. Error code: %s", display.HexData(b), display.HexData(e))
 		return b, e == 0
 	case <- time.After(5 * time.Second):
 		s.log.Warnf("Data not received")
@@ -197,6 +197,7 @@ func (s *Serial) SetData(data uint8) bool {
 		return false
 	}
 	// Send command
+	s.log.Debugf("Sending data: %s", display.HexData(data))
 	if n, err := s.port.Write([]byte{0x44,data,0x0A}); err != nil {
 		s.log.Errorf("Failed to send request to set data: %v", err)
 		return false

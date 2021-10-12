@@ -26,7 +26,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
 	t.PrintAtf( 1, 6, "%s5%s PC Low%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf( 1, 7, "%s6%s Input%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf(21, 1, "%sAddress low bus%s", common.Yellow, common.Reset)
+	t.PrintAtf(21, 1, "%sAddress bus low%s", common.Yellow, common.Reset)
 	t.PrintAtf(21, 2, "%s0%s Input%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21, 3, "%s1%s Program counter%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21, 4, "%s2%s Constants%s", common.Yellow, common.White, common.Reset)
@@ -34,7 +34,7 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
 	t.PrintAtf(21, 6, "%s4%s ALU%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(21, 7, "%s5%s PC Low Register%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf(41, 1, "%sAddress high bus%s", common.Yellow, common.Reset)
+	t.PrintAtf(41, 1, "%sAddress bus high%s", common.Yellow, common.Reset)
 	t.PrintAtf(41, 2, "%s0%s Input%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41, 3, "%s1%s Constants%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41, 4, "%s2%s Program counter%s", common.Yellow, common.White, common.Reset)

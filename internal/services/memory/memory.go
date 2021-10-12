@@ -18,10 +18,10 @@ const (
 )
 
 var colorSet = [][]interface{}{
-		{common.BrightMagenta, common.BrightYellow, common.BrightMagenta, "", "", "", "", common.Reset},
-		{common.BrightMagenta, "", "", common.BrightYellow, common.BrightMagenta, "", "", common.Reset},
-		{common.BrightMagenta, "", "", "", "", common.BrightYellow, common.BrightMagenta, common.Reset},
-		{common.Magenta, "", "", "", "", "", "", common.Reset},
+		{common.BrightMagenta, common.BrightYellow, common.BrightMagenta, "", "", "", "", common.Grey, common.Reset},
+		{common.BrightMagenta, "", "", common.BrightYellow, common.BrightMagenta, "", "", common.Grey, common.Reset},
+		{common.BrightMagenta, "", "", "", "", common.BrightYellow, common.BrightMagenta, common.Grey, common.Reset},
+		{common.Magenta, "", "", "", "", "", "", common.Grey, common.Reset},
 	}
 
 type Memory struct {
@@ -80,70 +80,70 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 		// 6502 in order to get accurate data as part of the
 		// instruction
 		if opCode.AddrMode == instructionSet.IMP {
-			sInst = fmt.Sprintf("%s%%s%%s%%s%%s        {IMP}", sInst)
+			sInst = fmt.Sprintf("%s%%s%%s%%s%%s        %%s{IMP}", sInst)
 		} else if opCode.AddrMode == instructionSet.IMM {
 			lo = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s#$%%s%s%%s%%s%%s    {IMM}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s#$%%s%s%%s%%s%%s    %%s{IMM}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ZPG {
 			lo = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s     {ZPG}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s     %%s{ZPG}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ZPX {
 			lo = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s$%%s%s,X%%s%%s%%s   {ZPX}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%s%s,X%%s%%s%%s   %%s{ZPX}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ZPY {
 			lo = m.memory[addr]
 			addr++
 			//sInst += "$" + display.HexData(lo) + ", Y {ZPY}"
-			sInst = fmt.Sprintf("%s$%%s%s,Y%%s%%s%%s   {ZPY}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%s%s,Y%%s%%s%%s   %%s{ZPY}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.IZX {
 			lo = m.memory[addr]
 			addr++
 			//sInst += "($" + display.HexData(lo) + ", X) {IZX}"
-			sInst = fmt.Sprintf("%s($%%s%s,X)%%s%%s%%s {IZX}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s($%%s%s,X)%%s%%s%%s %%s{IZX}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.IZY {
 			lo = m.memory[addr]
 			addr++
 			//sInst += "($" + display.HexData(lo) + "), Y {IZY}"
-			sInst = fmt.Sprintf("%s($%%s%s,Y)%%s%%s%%s {IZY}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s($%%s%s,Y)%%s%%s%%s %%s{IZY}", sInst, display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ABS {
 			lo = m.memory[addr]
 			addr++
 			hi = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s%%[5]s   {ABS}", sInst, display.HexData(hi), display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s%%[5]s   %%[8]s{ABS}", sInst, display.HexData(hi), display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ABX {
 			lo = m.memory[addr]
 			addr++
 			hi = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,X%%[5]s {ABX}", sInst, display.HexData(hi), display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,X%%[5]s %%[8]s{ABX}", sInst, display.HexData(hi), display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.ABY {
 			lo = m.memory[addr]
 			addr++
 			hi = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,Y%%[5]s {ABY}", sInst, display.HexData(hi), display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,Y%%[5]s %%[8]s{ABY}", sInst, display.HexData(hi), display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.IND {
 			lo = m.memory[addr]
 			addr++
 			hi = m.memory[addr]
 			addr++
-			sInst = fmt.Sprintf("%s($%%[6]s%s%%[7]s%%[4]s%s)%%[5]s {IND}", sInst, display.HexData(hi), display.HexData(lo))
+			sInst = fmt.Sprintf("%s($%%[6]s%s%%[7]s%%[4]s%s)%%[5]s %%[8]s{IND}", sInst, display.HexData(hi), display.HexData(lo))
 		} else if opCode.AddrMode == instructionSet.REL {
 			lo = m.memory[addr]
 			addr++
 			//sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
-			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       {REL}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%s{REL}", sInst, display.HexData(lo))
 		}
 
 		// Add the formed string to a std::map, using the instruction's
 		// address as the key. This makes it convenient to look for later
 		// as the instructions are variable in length, so a straight up
 		// incremental index is not sufficient.
-		mapLines[lineAddr] = fmt.Sprintf("%-30s%%s", sInst)
+		mapLines[lineAddr] = fmt.Sprintf("%s%%s", sInst)
 	}
 	return mapLines
 }

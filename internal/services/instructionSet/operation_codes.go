@@ -137,7 +137,7 @@ const (
 )
 
 var (
-	addressModeNames = []string{"", "IMM", "IMP", "IZX", "IZY", "ZPG", "ZPX", "ZPY", "REL", "ABS", "ABX", "ABY", "IND", "ACC"}
+	AddressModeNames = []string{"", "IMM", "IMP", "IZX", "IZY", "ZPG", "ZPX", "ZPY", "REL", "ABS", "ABX", "ABY", "IND", "ACC"}
 )
 
 type OpCode struct {
@@ -853,7 +853,7 @@ func jsr() *OpCode {
 	oc.Syntax    = "$5597"
 	oc.OpCode    = 0x20
 	oc.Operands  = 2
-	oc.Steps     = 7
+	oc.Steps     = 6
 	oc.PageCross = false
 	oc.Virtual   = false
 	oc.BranchBit = 0
@@ -861,18 +861,21 @@ func jsr() *OpCode {
 	setDefaultLines(oc)
 
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AUSA
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
 		oc.Lines[flags][1][PHI2] ^= 0
-		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
-		oc.Lines[flags][2][PHI2] ^= CL_DBRW
-		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
-		oc.Lines[flags][3][PHI2] ^= CL_DBRW
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][2][PHI2] ^= CL_DBD1 | CL_DBRW
+		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD
+		oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD1 | CL_DBRW
+
 		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
-		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_PCLH
-		oc.Lines[flags][5][PHI1] ^= CL_AHD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
-		oc.Lines[flags][5][PHI2] ^= CL_ALD1 | CL_PCLL | CL_PCIN
+		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_ALD2 | CL_PCLL | CL_PCLH
+
+		oc.Lines[flags][5][PHI1] ^= CL_SPLD | CL_SBD2
+		oc.Lines[flags][5][PHI2] ^= 0
+
 		loadNextInstruction(oc, flags)
 	}
 	return oc
