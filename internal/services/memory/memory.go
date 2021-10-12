@@ -136,7 +136,7 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 			lo = m.memory[addr]
 			addr++
 			//sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
-			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%s{REL}", sInst, display.HexData(lo))
+			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s     %%s{REL}", sInst, display.HexData(lo))
 		}
 
 		// Add the formed string to a std::map, using the instruction's
