@@ -79,7 +79,7 @@ func New() *Driver {
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
-	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory)
+	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory, d.lines.BusController())
 	d.editor       = 0
 	d.dispChan     = make(chan bool)
 	d.monitorChan  = make(chan bool)
@@ -255,6 +255,8 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock]&^mask | d.opCode.Presets[flags][step][clock]&mask
 		case 3:
 			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] ^ mask
+		case 4:
+			d.opCode.Lines[flags][step][clock] = bit
 		}
 
 		if mask == instructionSet.CL_DBRW {
@@ -389,6 +391,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	lines, aLines, outputs, AluOperations = d.opCode.Block(
 		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2)
+	d.lines.SetControlLines(d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()])
 	for i := 0; i < 14; i++ {
 		str := ""
 		if i < len(lines) {
@@ -410,8 +413,8 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	// Bus Content
 	t.PrintAtf(90,  7, "%sBus Content", common.Yellow)
-	t.PrintAtf(85,  8, "%sABH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
-	t.PrintAtf(86,  9, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
+	t.PrintAtf(86,  8, "%sDB: %s%s%s", common.Yellow, common.White, outputs[0], display.ClearEnd)
+	t.PrintAtf(85,  9, "%sABH: %s%s%s", common.Yellow, common.White, outputs[2], display.ClearEnd)
 	t.PrintAtf(85, 10, "%sABL: %s%s%s", common.Yellow, common.White, outputs[1], display.ClearEnd)
 	t.PrintAtf(86, 11, "%sSB: %s%s%s", common.Yellow, common.White, outputs[3], display.ClearEnd)
 
@@ -448,10 +451,6 @@ func (d *Driver) Process(input common.Input) bool {
 
 	if input.KeyCode != 0 {
 		switch input.KeyCode {
-		case 101:
-		case 102:
-		case 103:
-		case 104:
 		default:
 			d.log.Warnf("Unknown code: [%v]", input.KeyCode)
 		}

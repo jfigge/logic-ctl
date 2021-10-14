@@ -34,7 +34,7 @@ const (
 	CL_AUO1 // ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)
 	CL_AUO2 // ALU Op Selector #2 (0=first, 1=second)
 	CL_AUSA // ALU Load A Selector (0=Special Bus, 1=zeros)
-	CL_AUSB // ALU Load B Selector (0=DB, 1=ADL)
+	CL_AUSB // ALU Load B Selector (0=DB, 1=ABL)
 	CL_AUIB // ALU Load Invert data bus
 	CL_PAUS // Set clock manual step mode
 	CL_AULA // ALU Input A Load
@@ -45,11 +45,11 @@ const (
 	CL_ALC1 // Address Low constant (1)
 	CL_ALC2 // Address Low constant (2)
 	CL_SPLD // Stack pointer load
-	CL_AHLD // Load address bus high from ADH
-	CL_ALLD // Load address bus low from ADL
+	CL_AHLD // Load address bus high from ABH
+	CL_ALLD // Load address bus low from ABL
 
-	CL_PCLH // Load program counter from ADH
-	CL_PCLL // Load program counter from ADL
+	CL_PCLH // Load program counter from ABH
+	CL_PCLL // Load program counter from ABL
 	CL_PCIN // Increment program counter
 	CL_UNU1 // Unused #1
 	CL_DBRW // Data bus Read/Write (0=Write, 1=Read)
@@ -69,6 +69,10 @@ const (
 	CL_CIOV = CL_AULA
 )
 
+type Ref struct{
+	Name string
+	Index int
+}
 var (
 	mnemonics = [][]string{
 		/* EPROM 1a */ {"CTMR", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
@@ -95,11 +99,11 @@ var (
 		{"Data bus Read/Write (0=Write, 1=Read)",""},
 		{"Unused #1", ""},
 		{"Increment program counter",""},
-		{"Load program counter from ADL",""},
-		{"Load program counter from ADH",""},
+		{"Load program counter from ABL",""},
+		{"Load program counter from ABH",""},
 		// EPROM 2a
-		{"Load address bus low from ADL",""},
-		{"Load address bus high from ADH",""},
+		{"Load address bus low from ABL",""},
+		{"Load address bus high from ABH",""},
 		{"Stack pointer load",""},
 		{"Address Low constant (2)",""},
 		{"Address Low constant (1)",""},
@@ -110,7 +114,7 @@ var (
 		{"ALU Input A Load","Carry-in override (0=off, 1=on)"},
 		{"Set clock manual step mode",""},
 		{"ALU Load Invert data bus",""},
-		{"ALU Load B Selector (0=DB, 1=ADL)",""},
+		{"ALU Load B Selector (0=DB, 1=ABL)",""},
 		{"ALU Load A Selector (0=Special Bus, 1=zeros)",""},
 		{"ALU Op Selector #2 (0=first, 1=second)",""},
 		{"ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)",""},
@@ -140,81 +144,101 @@ var (
 		CL_AUS2 | CL_SBD2 | CL_SBD1 | CL_SBD0 | CL_SBLX | CL_SBLY | CL_SBLA)
 	Defaults = [2]uint64 {x, x ^ CL_CIOV}
 
-	OutputsDB  = map[uint64]string {
-		0:                           "None (0)",
-		CL_DBD0:                     "Accumulator",
-		CL_DBD1:                     "Processor status",
-		CL_DBD0 | CL_DBD1:           "Special bus",
-		CL_DBD2:                     "Program counter high",
-		CL_DBD0 | CL_DBD2:           "Program counter low",
-		CL_DBD1 | CL_DBD2:           "Input data latch*",
-		CL_DBD0 | CL_DBD1 | CL_DBD2: "None (7)",
+	OutputsDB  = map[uint64]Ref {
+		0:                           {"None (0)",0},
+		CL_DBD0:                     {"Accumulator",1},
+		CL_DBD1:                     {"Processor status",2},
+		CL_DBD0 | CL_DBD1:           {"Special bus", 3},
+		CL_DBD2:                     {"Program counter high", 4},
+		CL_DBD0 | CL_DBD2:           {"Program counter low", 5},
+		CL_DBD1 | CL_DBD2:           {"Input data latch*", 6},
+		CL_DBD0 | CL_DBD1 | CL_DBD2: {"None (7)", 7},
 	}
-	OutputsADH = map[uint64]string{
-		0 :                "Input data latch",
-		CL_AHD0:           "Constants*",
-		CL_AHD1:           "Program counter",
-		CL_AHD0 | CL_AHD1: "Serial bus",
+	OutputsABH = map[uint64]Ref{
+		0 :                {"Input data latch", 0},
+		CL_AHD0:           {"Constants*", 1},
+		CL_AHD1:           {"Program counter", 2},
+		CL_AHD0 | CL_AHD1: {"Serial bus", 3},
 	}
-	OutputsADL = map[uint64]string{
-		0 :                          "Input data latch",
-		CL_ALD0:                     "Program counter",
-		CL_ALD1:                     "Constants",
-		CL_ALD0 | CL_ALD1:           "Stack pointer",
-		CL_ALD2:                     "ALU",
-		CL_ALD0 | CL_ALD2:           "PC Low Register",
-		CL_ALD1 | CL_ALD2:           "None (6)",
-		CL_ALD0 | CL_ALD1 | CL_ALD2: "None* (7)",
+	OutputsABL = map[uint64]Ref{
+		0 :                          {"Input data latch", 0},
+		CL_ALD0:                     {"Program counter", 1},
+		CL_ALD1:                     {"Constants", 2},
+		CL_ALD0 | CL_ALD1:           {"Stack pointer", 3},
+		CL_ALD2:                     {"ALU", 4},
+		CL_ALD0 | CL_ALD2:           {"PC Low Register", 5},
+		CL_ALD1 | CL_ALD2:           {"None (6)", 6},
+		CL_ALD0 | CL_ALD1 | CL_ALD2: {"None* (7)", 7},
 	}
-	OutputsSB  = map[uint64]string{
-		0 :                          "Accumulator",
-		CL_SBD0:                     "Y register",
-		CL_SBD1:                     "X register",
-		CL_SBD0 | CL_SBD1:           "ALU",
-		CL_SBD2:                     "Stack pointer",
-		CL_SBD0 | CL_SBD2:           "Data bus",
-		CL_SBD1 | CL_SBD2:           "Address high bus",
-		CL_SBD0 | CL_SBD1 | CL_SBD2: "None* (7)",
+	OutputsSB  = map[uint64]Ref{
+		0 :                          {"Accumulator", 0},
+		CL_SBD0:                     {"Y register", 1},
+		CL_SBD1:                     {"X register", 2},
+		CL_SBD0 | CL_SBD1:           {"ALU", 3},
+		CL_SBD2:                     {"Stack pointer", 4},
+		CL_SBD0 | CL_SBD2:           {"Data bus", 5},
+		CL_SBD1 | CL_SBD2:           {"Address high bus", 6},
+		CL_SBD0 | CL_SBD1 | CL_SBD2: {"None* (7)", 7},
 	}
 
-	AluA = map[uint64]string{
-		0: "Special Bus*",
-		CL_AUSA: "Zeros",
+	AluA = map[uint64]Ref{
+		0:       {"Special Bus*", 0},
+		CL_AUSA: {"Zeros", 1},
 	}
-	AluB = map[uint64]string{
-		0 :      "Data bus*",
-		CL_AUSB: "Address bus low",
+	AluB = map[uint64]Ref{
+		0 :      {"Data bus*", 0},
+		CL_AUSB: {"Address bus low", 1},
 	}
-	AluOp = map[uint64]string{
-		0 :                                    "Logical Shift",
-		CL_AUS1:                               "Rotation Shift",
-		CL_AUS2:                               "Arithmetic Shift",
-		CL_AUS1 | CL_AUS2:                     "Add*",
-		CL_AUS1 | CL_AUS2 | CL_AUO1:           "OR",
-		CL_AUS1 | CL_AUS2 | CL_AUO2:           "AND",
-		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: "XOR",
-		CL_AUIB:                               "Logical Shift",
-		CL_AUIB | CL_AUS1:                     "Rotation Shift",
-		CL_AUIB | CL_AUS2:                     "Arithmetic Shift",
-		CL_AUIB | CL_AUS1 | CL_AUS2:           "Subtract",
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1: "OR",
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO2: "AND",
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: "XOR",
+	AluOp = map[uint64]Ref{
+		0 :                                              {"Logical Shift", 0},
+		CL_AUS1:                                         {"Rotation Shift", 1},
+		CL_AUS2:                                         {"Arithmetic Shift", 2},
+		CL_AUS1 | CL_AUS2:                               {"Add*", 3},
+		CL_AUS1 | CL_AUS2 | CL_AUO1:                     {"OR", 4},
+		CL_AUS1 | CL_AUS2 | CL_AUO2:                     {"AND", 5},
+		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2:           {"XOR", 6},
+		CL_AUIB:                                         {"Logical Shift", 7},
+		CL_AUIB | CL_AUS1:                               {"Rotation Shift", 8},
+		CL_AUIB | CL_AUS2:                               {"Arithmetic Shift", 9},
+		CL_AUIB | CL_AUS1 | CL_AUS2:                     {"Subtract", 10},
+		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1:           {"OR", 11},
+		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO2:           {"AND", 12},
+		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: {"XOR", 13},
 	}
-	AluDir  = map[uint64]string{
-		0 :                          "Left",
-		CL_AULR:                     "Right",
-		CL_AUS1:                     "Left",
-		CL_AUS1 | CL_AULR:           "Right",
-		CL_AUS2:                     "Left",
-		CL_AUS2 | CL_AULR:           "Right",
-		CL_AUS1 | CL_AUS2:           "",
-		CL_AUS1 | CL_AUS2 | CL_AULR: "",
+	AluDir  = map[uint64]Ref{
+		0 :                          {"Left",  0},
+		CL_AULR:                     {"Right", 1},
+		CL_AUS1:                     {"Left",  2},
+		CL_AUS1 | CL_AULR:           {"Right", 3},
+		CL_AUS2:                     {"Left",  4},
+		CL_AUS2 | CL_AULR:           {"Right", 5},
+		CL_AUS1 | CL_AUS2:           {"",      6},
+		CL_AUS1 | CL_AUS2 | CL_AULR: {"",      7},
+	}
+
+	busNames = []string {"  ABH", "   DB", "  ABL", "   SB"}//, "ALU-B", "ALU-A", "   OP", "  Dir"}
+	busMaps  = []map[uint64]Ref {OutputsDB, OutputsABH, OutputsABL, OutputsSB}//, AluB, AluB, AluOp, AluDir}
+	busLines = []uint64 {
+		CL_DBD0 | CL_DBD1 | CL_DBD2,
+		CL_AHD0 | CL_AHD1,
+		CL_ALD0 | CL_ALD1 | CL_ALD2,
+		CL_SBD0 | CL_SBD1 | CL_SBD2,
+		//CL_AUSA, CL_AUSB, CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2, CL_AUS1 | CL_AUS2 | CL_AULR,
 	}
 )
 
+type BusController struct {
+	xOffset   int
+	yOffset   []int
+	cursor    common.Coord
+	terminal  *display.Terminal
+	redraw    func(bool)
+	ctrlLines uint64
+	step      uint8
+	clock     uint8
+	setLines  func(step uint8, clock uint8, bit uint64, value uint8)
+}
 type ControlLines struct {
-	lines     []string
 	xOffset   []int
 	yOffset   int
 	cursor    common.Coord
@@ -223,6 +247,7 @@ type ControlLines struct {
 	steps     int
 	redraw    func(bool)
 	setLine   func(step uint8, clock uint8, bit uint64, value uint8)
+	busCntrl  *BusController
 }
 func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(bool),
 	setLine func(step uint8, clock uint8, bit uint64, value uint8)) *ControlLines {
@@ -234,14 +259,23 @@ func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(b
 		yOffset:  20,
 		setLine:  setLine,
 		redraw:   redraw,
+		busCntrl: &BusController{
+			terminal: terminal,
+			redraw:   redraw,
+			xOffset:  90,
+			yOffset:  []int{8, 10},
+			cursor:   common.Coord{X: 0, Y: 0},
+			setLines: setLine,
+		},
 	}
-
 	for i := 0; i < 48; i++ {
 		if lineDescriptions[i][1] == "" { lineDescriptions[i][1] = lineDescriptions[i][0] }
 		if mnemonics[i][1] == "" { mnemonics[i][1] = mnemonics[i][0] }
 	}
-
 	return &l
+}
+func (l *ControlLines) BusController() *BusController {
+	return l.busCntrl
 }
 
 func (l *ControlLines) Up(n int) {
@@ -290,7 +324,12 @@ func (l *ControlLines) EditStep() uint8 {
 	return uint8(l.cursor.Y)
 }
 func (l *ControlLines) SetEditStep(y uint8) {
-	l.cursor.Y = int(y)
+	l.cursor.Y  = int(y)
+	l.busCntrl.step  = uint8((l.cursor.Y - 1) / 2)
+	l.busCntrl.clock = uint8((l.cursor.Y - 1) % 2)
+}
+func (l *ControlLines) SetControlLines(ctrlLines uint64) {
+	l.busCntrl.ctrlLines = ctrlLines
 }
 
 func (l *ControlLines) KeyIntercept(input common.Input) bool {
@@ -337,4 +376,79 @@ func (l *ControlLines) LineNamesBlock(clock uint8) []string {
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)
+}
+
+func (b *BusController) Up(n int) {
+	if b.cursor.Y - n >= 0 {
+		b.cursor.Y -= n
+		b.PositionCursor()
+		b.redraw(false)
+	} else {
+		b.terminal.Bell()
+	}
+}
+func (b *BusController) Down(n int) {
+	if b.cursor.Y + n < len(busMaps) {
+		b.cursor.Y += n
+		b.PositionCursor()
+		b.redraw(false)
+	} else {
+		b.terminal.Bell()
+	}
+}
+func (b *BusController) Left(n int) {
+	if next, ok := b.findNext(-1); ok {
+		b.ctrlLines = (b.ctrlLines &^ busLines[b.cursor.Y]) ^ next
+		b.setLines(b.step, b.clock, b.ctrlLines, 4)
+		b.PositionCursor()
+	} else {
+		b.terminal.Bell()
+	}
+}
+func (b *BusController) Right(n int) {
+	if next, ok := b.findNext(1); ok {
+		b.ctrlLines = (b.ctrlLines &^ busLines[b.cursor.Y]) ^ next
+		b.setLines(b.step, b.clock, b.ctrlLines, 4)
+		b.PositionCursor()
+	} else {
+		b.terminal.Bell()
+	}
+}
+func (b *BusController) findNext(offset int) (uint64, bool)  {
+	busMap := busMaps[b.cursor.Y]
+	currentRef := busMap[b.ctrlLines & busLines[b.cursor.Y]]
+	next := currentRef.Index + offset
+	for k, ref := range busMap {
+		if ref.Index == next {
+			return k, true
+		}
+	}
+	return 0, false
+}
+func (b *BusController) KeyIntercept(input common.Input) bool {
+	if input.KeyCode != 0 {
+		switch input.KeyCode {
+		case display.CursorUp:
+			b.Up(1)
+		case display.CursorDown:
+			b.Down(1)
+		case display.CursorLeft:
+			b.Left(1)
+		case display.CursorRight:
+			b.Right(1)
+		default:
+			// keycode not processed
+			return false
+		}
+	} else {
+		return false
+	}
+	// key processed
+	return true
+}
+func (b *BusController) PositionCursor() {
+	b.terminal.At(b.xOffset, b.cursor.Y + b.yOffset[b.cursor.Y/4])
+}
+func (b *BusController) CursorPosition() string {
+	return fmt.Sprintf("  %s", busNames[b.cursor.Y])
 }
