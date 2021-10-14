@@ -391,7 +391,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	lines, aLines, outputs, AluOperations = d.opCode.Block(
 		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2)
-	d.lines.SetControlLines(d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()])
+	d.lines.SetControlLines(d.opCode.Lines[flags])
 	for i := 0; i < 14; i++ {
 		str := ""
 		if i < len(lines) {
@@ -587,6 +587,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 
 	d.lines.SetEditStep(d.step.CurrentStep() * 2 + d.clock.CurrentState() + 1)
 	d.log.Tracef("tickFunc. PhaseChange: %v. Clock: %v. Flags: %v. Phase %v", phaseChange, d.step.CurrentStep(), d.flags.CurrentFlags(), d.clock.CurrentState())
+	d.editor = 0
 	d.redraw(false)
 }
 func (d *Driver) SetOpCode(opCode uint8) {

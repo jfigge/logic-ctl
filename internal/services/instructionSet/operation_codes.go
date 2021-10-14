@@ -817,7 +817,25 @@ func reg(name string, opcode uint8) *OpCode {
 	oc.BranchBit = 0
 	oc.BranchSet = false
 	oc.Flags     = N|Z
+
 	setDefaultLines(oc)
+	for flags := uint8(0); flags < 16; flags++ {
+		switch opcode {
+		case 0xCA: // DEX
+			oc.Lines[flags][0][PHI1] ^= CL_AULB | CL_AULA | CL_AUSB | CL_SBD0 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLX | CL_SBD2
+		case 0x88: // DEY
+			oc.Lines[flags][0][PHI1] ^= CL_AULB | CL_AULA | CL_AUSB | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLY | CL_SBD2
+		case 0xE8: // INX
+			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD0 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AULA | CL_SBLX | CL_SBD2 | CL_CENB
+		case 0xC8: // INY
+			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AULA | CL_SBLY | CL_SBD2 | CL_CENB
+		}
+		loadNextInstruction(oc, flags)
+	}
 	return oc
 }
 func stk(name string, opcode uint8, timing uint8, push bool, flags uint8, dataBusLines uint64, specialBusLines uint64) *OpCode {
@@ -963,7 +981,7 @@ func logic(oc *OpCode,aluOp uint64, aluA uint64) *OpCode {
 		switch oc.AddrMode {
 		case IMM:
 			oc.Lines[flags][1][PHI1] ^= aluOp | CL_AULB | aluA
-			oc.Lines[flags][1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
+			oc.Lines[flags][1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2
 		case ZPG:
 		case ZPX:
 		case ABS:

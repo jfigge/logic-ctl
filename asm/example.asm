@@ -1,4 +1,4 @@
-  ldx  #$02
+  ldy  #$02
 loop:
-  dex
+  dey
   bne loop

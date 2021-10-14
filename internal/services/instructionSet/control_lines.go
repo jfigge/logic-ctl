@@ -316,6 +316,8 @@ func (l *ControlLines) Right(n int) {
 }
 func (l *ControlLines) PositionCursor() {
 	l.terminal.At(l.cursor.X + l.xOffset[(l.cursor.X-1)/8], l.cursor.Y + l.yOffset)
+	l.busCntrl.step  = uint8((l.cursor.Y - 1) / 2)
+	l.busCntrl.clock = uint8((l.cursor.Y - 1) % 2)
 }
 func (l *ControlLines) CursorPosition() string {
 	return fmt.Sprintf("  %d,%d", l.cursor.X, l.cursor.Y)
@@ -328,8 +330,8 @@ func (l *ControlLines) SetEditStep(y uint8) {
 	l.busCntrl.step  = uint8((l.cursor.Y - 1) / 2)
 	l.busCntrl.clock = uint8((l.cursor.Y - 1) % 2)
 }
-func (l *ControlLines) SetControlLines(ctrlLines uint64) {
-	l.busCntrl.ctrlLines = ctrlLines
+func (l *ControlLines) SetControlLines(ctrlLines [8][2]uint64) {
+	l.busCntrl.ctrlLines = ctrlLines[uint8((l.cursor.Y - 1) / 2)][uint8((l.cursor.Y - 1) % 2)]
 }
 
 func (l *ControlLines) KeyIntercept(input common.Input) bool {
@@ -397,7 +399,7 @@ func (b *BusController) Down(n int) {
 	}
 }
 func (b *BusController) Left(n int) {
-	if next, ok := b.findNext(-1); ok {
+	if next, ok := b.findNext(-n); ok {
 		b.ctrlLines = (b.ctrlLines &^ busLines[b.cursor.Y]) ^ next
 		b.setLines(b.step, b.clock, b.ctrlLines, 4)
 		b.PositionCursor()
@@ -406,7 +408,7 @@ func (b *BusController) Left(n int) {
 	}
 }
 func (b *BusController) Right(n int) {
-	if next, ok := b.findNext(1); ok {
+	if next, ok := b.findNext(n); ok {
 		b.ctrlLines = (b.ctrlLines &^ busLines[b.cursor.Y]) ^ next
 		b.setLines(b.step, b.clock, b.ctrlLines, 4)
 		b.PositionCursor()
