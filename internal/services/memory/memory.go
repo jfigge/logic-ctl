@@ -85,7 +85,7 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 	mapLines := map[uint16]string{}
 	var lineAddr uint16 = 0
 
-	for addr >= addr + size {
+	for addr <= addr + size {
 		lineAddr = addr
 
 		// Prefix line with instruction address
@@ -229,7 +229,10 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 }
 func (m *Memory) InstructionBlock(instrAddr, address uint16) (lines []string) {
 
-	totalLines := lineCount
+	totalLines := uint16(lineCount)
+	if totalLines > m.size {
+		totalLines = m.size
+	}
 	addrBefore := instrAddr
 	addrAfter  := instrAddr
 
@@ -240,7 +243,7 @@ func (m *Memory) InstructionBlock(instrAddr, address uint16) (lines []string) {
 	if line, ok := m.disassembly[instrAddr]; ok {
 		lines = append(lines, fmt.Sprintf(line, colorSet[colorSetIndex]...))
 
-		for len(lines) < totalLines {
+		for len(lines) < int(totalLines) {
 			addrBefore-- // wraps around to bottom (0xffff) of memory
 			if addrBefore < instrAddr {
 				if line, ok = m.disassembly[addrBefore]; ok {
