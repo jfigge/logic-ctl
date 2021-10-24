@@ -7,6 +7,9 @@ test:
 example:
 	vasm -Fbin -dotdir -o example.bin example.asm; hexdump -C example.bin
 
+tax:
+	vasm -Fbin -dotdir -o tax.bin tax.asm; hexdump -C tax.bin
+
 countdown:
 	vasm -Fbin -dotdir -o countdown.bin countdown.asm; hexdump -C countdown.bin
 
