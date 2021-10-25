@@ -1088,6 +1088,10 @@ func addressMode(oc *OpCode) *OpCode {
 		case ZPG:
 		case ZPX:
 		case ABS:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN
 		case ABX:
 		case ABY:
 		case IND:
