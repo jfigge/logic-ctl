@@ -466,8 +466,8 @@ func defineOpCodes() map[uint8]*OpCode {
 		// For example if address $3000 contains $40, $30FF contains $80, and $3100 contains $50, the result of JMP
 		// ($30FF) will be a transfer of control to $4080 rather than $5080 as you intended i.e. the 6502 took the low
 		// byte of the address from $30FF and the high byte from $3000.
-		0x4C : mop(ABS, "JMP", "$5597",   0x4C, 3, 3, false, 0),
-		0x6C : mop(IND, "JMP", "($5597)", 0x6C, 3, 5, false, 0),
+		0x4C : jmp(ABS, "$5597",   0x4C, 3),
+		0x6C : jmp(IND, "($5597)", 0x6C, 5),
 
 
 		// JSR (Jump to SubRoutine)
@@ -701,6 +701,36 @@ func loadNextInstruction(oc *OpCode, flags uint8 ) *OpCode {
 	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
 	return oc
 }
+func wordAddressMode(oc *OpCode, flags uint8) *OpCode {
+	oc.usesAM = true
+	switch oc.AddrMode {
+	case IMM:
+	case ZPG:
+	case ZPX:
+	case ABS:
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+		oc.Lines[flags][1][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
+		// Ends with the ABH,ABL -> Input,ALU
+
+	case ABX:
+	case ABY:
+	case IND:
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+		oc.Lines[flags][1][PHI2] ^= CL_PCIN
+		oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
+		oc.Lines[flags][2][PHI2] ^= CL_AULA
+		oc.Lines[flags][3][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB
+		oc.Lines[flags][3][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
+		// Ends with the ABH,ABL -> Input,ALU
+	case IZX:
+	case IZY:
+	}
+	return oc
+}
 
 // Base opcode types
 func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool, flags uint8) *OpCode {
@@ -833,6 +863,18 @@ func reg(name string, opcode uint8) *OpCode {
 		case 0xC8: // INY
 			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD1 | CL_SBD2
 			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AULA | CL_SBLY | CL_SBD2 | CL_CENB
+		case 0xAA: // TAX
+			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_SBLX | CL_FSIA
+		case 0x8A: // TXA
+			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD2 | CL_SBLA
+		case 0xA8: // TAY
+			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_SBLY
+		case 0x98: // TYA
+			oc.Lines[flags][0][PHI1] ^= CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_SBD1 | CL_SBD2 | CL_SBLA
 		}
 		loadNextInstruction(oc, flags)
 	}
@@ -894,6 +936,33 @@ func jsr() *OpCode {
 		oc.Lines[flags][5][PHI1] ^= CL_SPLD | CL_SBD2
 		oc.Lines[flags][5][PHI2] ^= 0
 
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func jmp(addrMode uint8, syntax string, opcode uint8, steps uint8) *OpCode {
+	oc := new(OpCode)
+	oc.AddrMode  = addrMode
+	oc.Name      = "JMP"
+	oc.Syntax    = fmt.Sprintf("JMP %s", syntax)
+	oc.OpCode    = opcode
+	oc.Operands  = 3
+	oc.Steps     = steps
+	oc.PageCross = false
+	oc.Virtual   = false
+	oc.BranchBit = 0
+	oc.BranchSet = false
+	oc.Flags     = 0
+	setDefaultLines(oc)
+
+	for flags := uint8(0); flags < 16; flags++ {
+		wordAddressMode(oc, flags)
+		switch oc.AddrMode {
+		case ABS:
+			oc.Lines[flags][1][PHI2] ^=  CL_PCLL | CL_PCLH
+		case IND:
+			oc.Lines[flags][3][PHI2] ^=  CL_PCLL | CL_PCLH
+		}
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1008,6 +1077,7 @@ func rts(oc *OpCode) *OpCode {
 	}
 	return oc
 }
+
 func addressMode(oc *OpCode) *OpCode {
 	oc.usesAM = true
 	for flags := uint8(0); flags < 16; flags++ {
@@ -1015,16 +1085,12 @@ func addressMode(oc *OpCode) *OpCode {
 		case IMM:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-
 		case ZPG:
 		case ZPX:
 		case ABS:
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
-			oc.Lines[flags][1][PHI2] ^= CL_PCIN
 		case ABX:
 		case ABY:
+		case IND:
 		case IZX:
 		case IZY:
 		}
