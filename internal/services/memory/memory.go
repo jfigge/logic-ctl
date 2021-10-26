@@ -302,7 +302,7 @@ func (m *Memory) PositionCursor() {
 	m.terminal.At(m.cursor.X * 3 + m.xOffset[(m.cursor.X)/8] +len(m.input), m.cursor.Y + m.yOffset[(m.cursor.Y)/8])
 }
 func (m *Memory) CursorPosition() string {
-	return display.HexAddress(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16))
+	return "     " + display.HexAddress(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16))
 }
 func (m *Memory) KeyIntercept(input common.Input) bool {
 	if input.KeyCode != 0 && !m.inputMode {
@@ -319,20 +319,25 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 			// keycode not processed
 			return false
 		}
-	} else {
+		return true
+	} else  {
 		switch input.Ascii {
 		case '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','A','B','C','D','E','F':
-			m.input += strings.ToUpper(string(input.Ascii))
-			if len(m.input) == 2 {
-				bs, _ := hex.DecodeString(m.input)
-				m.lastAddress = m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16)
-				m.lastInput = m.memory[m.lastAddress]
-				m.memory[m.lastAddress] = bs[0]
-				m.inputMode = false
-				m.hasLastInput = true
-				m.disassembly = m.disassemble(m.size)
+			if m.inputMode {
+				m.input += strings.ToUpper(string(input.Ascii))
+				if len(m.input) == 2 {
+					bs, _ := hex.DecodeString(m.input)
+					m.lastAddress = m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y*16)
+					m.lastInput = m.memory[m.lastAddress]
+					m.memory[m.lastAddress] = bs[0]
+					m.inputMode = false
+					m.hasLastInput = true
+					m.disassembly = m.disassemble(m.size)
+				}
+				m.redraw(true)
+			} else {
+				return false
 			}
-			m.redraw(true)
 
 		case 13, 127:
 			if !m.inputMode {
@@ -356,6 +361,7 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 			return false
 		}
 	}
-	// key processed
+	// Key processed
 	return true
+
 }

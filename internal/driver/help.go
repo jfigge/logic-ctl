@@ -59,12 +59,17 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
 	t.PrintAtf(21,11, "%sC%s Copies all lines%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(41,11, "%sh%s Show this page%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,11, "%sp%s Show ports%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(81,11, "%sq%s Quit%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(81,11, "%sq%s   Quit%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,12, "%sL%s Ctrl Line editor%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,12, "%sM%s Memory editor%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(41,12, "%sB%s Bus editor%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,12, "%sF%s Flags editor%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(81,12, "%ss%s Sync dev flags%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf( 1,13, "%s0%s Deactivate line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(21,13, "%s1%s Activate line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(41,13, "%sspace%s Toggle line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(61,13, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,14, "%s0%s Deactivate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,14, "%s1%s Activate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(41,14, "%sspace%s Toggle line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,14, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
 
 	t.PrintAtf(1, t.Rows(), "%sPress any key to exit%s", common.Yellow, common.Reset)
 }

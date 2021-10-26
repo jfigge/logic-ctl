@@ -1,8 +1,5 @@
-  jmp
-  lda  #$01
   ldx  #$02
-  ldy  #$03
-  tya
-  txa
-  tay
-  
+loop:
+  dex
+  bne  loop
+  jmp  $8000

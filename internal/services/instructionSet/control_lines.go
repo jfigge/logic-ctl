@@ -216,7 +216,7 @@ var (
 		CL_AUS1 | CL_AUS2 | CL_AULR: {"",      7},
 	}
 
-	busNames = []string {"  ABH", "   DB", "  ABL", "   SB"}//, "ALU-B", "ALU-A", "   OP", "  Dir"}
+	busNames = []string {" DB", "ABH", "ABL", " SB"}//, "ALU-B", "ALU-A", "   OP", "  Dir"}
 	busMaps  = []map[uint64]Ref {OutputsDB, OutputsABH, OutputsABL, OutputsSB}//, AluB, AluB, AluOp, AluDir}
 	busLines = []uint64 {
 		CL_DBD0 | CL_DBD1 | CL_DBD2,
@@ -320,7 +320,7 @@ func (l *ControlLines) PositionCursor() {
 	l.busCntrl.clock = uint8((l.cursor.Y - 1) % 2)
 }
 func (l *ControlLines) CursorPosition() string {
-	return fmt.Sprintf("  %d,%d", l.cursor.X, l.cursor.Y)
+	return fmt.Sprintf("    %02d,%02d", l.cursor.X, l.cursor.Y)
 }
 func (l *ControlLines) EditStep() uint8 {
 	return uint8(l.cursor.Y)
@@ -452,5 +452,5 @@ func (b *BusController) PositionCursor() {
 	b.terminal.At(b.xOffset, b.cursor.Y + b.yOffset[b.cursor.Y/4])
 }
 func (b *BusController) CursorPosition() string {
-	return fmt.Sprintf("  %s", busNames[b.cursor.Y])
+	return fmt.Sprintf("      %s", busNames[b.cursor.Y])
 }

@@ -44,9 +44,9 @@ type Driver struct {
 	inputChan   chan common.Input
 	connected    bool
 	keyIntercept []common.Intercept
-	ignoreFlags  bool
 	wg           *sync.WaitGroup
 	editor       int
+	xTerm        *term.Term
 }
 func New() *Driver {
 	d := Driver{}
@@ -63,19 +63,18 @@ func New() *Driver {
 
 	d.wg           = &sync.WaitGroup{}
 	d.buses        = [7]uint64 {1, 6, 7, 7, 0, 3, 0}
-	d.ignoreFlags  = true
 	d.UIs          = append(d.UIs, &d)
 	d.errorPage    = NewErrorPage()
 	d.helpPage     = NewHelpPage()
 	d.log          = logging.New(d.redraw)
 	d.step         = status.NewSteps(d.log)
-	d.flags        = status.NewFlags(d.log)
 	d.opCodes      = instructionSet.New(d.log)
 	d.clock        = status.NewClock(d.log, d.tick)
-	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.irq          = status.NewIrq(d.log, d.redraw)
 	d.nmi          = status.NewNmi(d.log, d.redraw)
 	d.reset        = status.NewReset(d.log, d.redraw)
+	d.flags        = status.NewFlags(d.log, d.display, d.redraw)
+	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
@@ -148,7 +147,8 @@ func (d *Driver) input(wg *sync.WaitGroup) {
 			d.redraw(true)
 
 		case input, ok = <-d.inputChan:
-			if d.UIs[0].Process(input) {
+
+			if len(d.UIs) > 0 && d.UIs[0].Process(input) {
 				d.UIs = d.UIs[1:]
 				d.redraw(true)
 			}
@@ -160,21 +160,21 @@ func (d *Driver) input(wg *sync.WaitGroup) {
 }
 
 func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
-	x, _ := term.Open("/dev/tty")
-	if x == nil {
+	d.xTerm, _ = term.Open("/dev/tty")
+	if d.xTerm == nil {
 		return 0, 0, fmt.Errorf("terminal unavailable")
 	} else {
 		defer func() {
-			if err := x.Restore(); err != nil {
+			if err := d.xTerm.Restore(); err != nil {
 				d.log.Errorf("Failed to restore terminal mode: %v", err)
 			}
-			if err := x.Close(); err != nil {
+			if err := d.xTerm.Close(); err != nil {
 				d.log.Errorf("Failed to close terminal input: %v", err)
 			}
 		}()
 	}
 
-	if err := term.RawMode(x); err != nil {
+	if err := term.RawMode(d.xTerm); err != nil {
 		str := fmt.Sprintf("Failed to access terminal RawMode: %v", err)
 		d.log.Error(str)
 		d.UIs = append([]common.UI{d.errorPage.ErrorViewer(str)}, d.UIs...)
@@ -182,15 +182,15 @@ func (d *Driver) ReadChar() (ascii int, keyCode int, err error) {
 	}
 	bs := make([]byte, 5)
 
-	if err := x.SetReadTimeout(20 * time.Second); err != nil {
+	if err := d.xTerm.SetReadTimeout(20 * time.Second); err != nil {
 		d.log.Warn("Failed to set read timeout")
 	}
-	if numRead, err := x.Read(bs); err != nil {
+	if numRead, err := d.xTerm.Read(bs); err != nil {
 		if err.Error() != "EOF" {
-			if err := x.Restore(); err != nil {
+			if err := d.xTerm.Restore(); err != nil {
 				d.log.Errorf("Failed to restore terminal mode: %v", err)
 			}
-			if err := x.Close(); err != nil {
+			if err := d.xTerm.Close(); err != nil {
 				d.log.Errorf("Failed to close terminal input: %v", err)
 			}
 		}
@@ -233,8 +233,8 @@ func (d *Driver) SetAddress(address uint16) {
 }
 func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 
-	flags := uint8(0)
-	if !d.ignoreFlags {
+	flags := d.flags.DevFlags()
+	if !d.flags.Ignore {
 		flags = d.flags.CurrentFlags()
 	}
 
@@ -378,14 +378,12 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 	var aLines[]string
 	var outputs[4]string
 	var AluOperations[4]string
-	flags := uint8(0)
-	if !d.ignoreFlags {
-		flags = d.flags.CurrentFlags()
-	}
-	if d.ignoreFlags {
-		t.PrintAtf(1, 20, "%sControl Lines (Ignoring flags)", common.Yellow)
+	flags := d.flags.DevFlags()
+	if d.flags.Ignore {
+		t.PrintAtf(1, 20, "%sControl Lines (%s%s)%s", common.Yellow, d.flags.DevBlock(), common.Yellow, common.Reset)
 	} else {
-		t.PrintAtf(1, 20, "%sControl Lines", common.Yellow)
+		flags = d.flags.CurrentFlags()
+		t.PrintAtf(1, 20, "%sControl Lines (Following flags)", common.Yellow)
 	}
 	t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
 
@@ -427,7 +425,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	// X and Y coordinates of cursor
 	str := d.keyIntercept[d.editor].CursorPosition()
-	d.display.PrintAt(d.display.Cols()-len(str), 1, str)
+	d.display.PrintAt(d.display.Cols()-9, 1, str)
 
 	// Notifications
 	max := d.display.Rows() - offset
@@ -462,9 +460,6 @@ func (d *Driver) Process(input common.Input) bool {
 			} else {
 				d.log.Warn("Failed to read address")
 			}
-		case 'f':
-			d.ignoreFlags = !d.ignoreFlags
-			d.redraw(true)
 		case 'q':
 			return true
 		case 'D':
@@ -472,8 +467,8 @@ func (d *Driver) Process(input common.Input) bool {
 		case 'd':
 			d.log.SetDebug(true)
 		case 'c', 'C':
-			flags := uint8(0)
-			if !d.ignoreFlags {
+			flags := d.flags.DevFlags()
+			if !d.flags.Ignore {
 				flags = d.flags.CurrentFlags()
 			}
 			mnemonics := d.opCode.DescribeLine(flags, (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2, 64, " | ", "CL_", input.Ascii == 'c')
@@ -509,6 +504,34 @@ func (d *Driver) Process(input common.Input) bool {
 		case 'p':
 			d.UIs = append([]common.UI{d.serial.PortViewer()}, d.UIs...)
 			d.redraw(true)
+		case 'L':
+			d.editor = 0
+			d.redraw(false)
+		case 'M':
+			d.editor = 1
+			d.redraw(false)
+		case 'B':
+			d.editor = 2
+			d.redraw(false)
+		case 'F':
+			if len(d.keyIntercept) == 3 {
+				d.flags.Ignore = true
+				d.keyIntercept = append(d.keyIntercept, d.flags)
+			}
+			d.editor = 3
+			d.redraw(false)
+		case 'f':
+			d.flags.Ignore = !d.flags.Ignore
+			if d.flags.Ignore {
+				d.keyIntercept = append(d.keyIntercept, d.flags)
+				d.editor = len(d.keyIntercept) - 1
+			} else {
+				if d.editor == len(d.keyIntercept) - 1 { d.editor = 0 }
+				d.keyIntercept = d.keyIntercept[:len(d.keyIntercept) - 1]
+			}
+			d.redraw(true)
+		case 's':
+			d.flags.SyncFlags()
 		case '\t':
 			if d.editor + 1 >= len(d.keyIntercept) {
 				d.editor = 0
@@ -549,8 +572,8 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		return
 	}
 
-	flags := uint8(0)
-	if !d.ignoreFlags {
+	flags := d.flags.DevFlags()
+	if !d.flags.Ignore {
 		flags = d.flags.CurrentFlags()
 	}
 	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
