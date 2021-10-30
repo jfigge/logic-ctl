@@ -1142,15 +1142,15 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 		}
 		lines2 = op.DescribeLine(flags, editStep, editPhase, 8, " ", "", false)
 
-		outputs[0] = OutputsDB [op.Lines[flags][editStep][editPhase] & (CL_DBD0|CL_DBD1|CL_DBD2)].Name
-		outputs[1] = OutputsABL[op.Lines[flags][editStep][editPhase] & (CL_ALD0|CL_ALD1|CL_ALD2)].Name
-		outputs[2] = OutputsABH[op.Lines[flags][editStep][editPhase] & (CL_AHD0|CL_AHD1)].Name
-		outputs[3] = OutputsSB [op.Lines[flags][editStep][editPhase] & (CL_SBD0|CL_SBD1|CL_SBD2)].Name
+		outputs[0] = OutputsDB [op.Lines[flags][editStep][editPhase] & busLines[0]].Name
+		outputs[1] = OutputsABL[op.Lines[flags][editStep][editPhase] & busLines[1]].Name
+		outputs[2] = OutputsABH[op.Lines[flags][editStep][editPhase] & busLines[2]].Name
+		outputs[3] = OutputsSB [op.Lines[flags][editStep][editPhase] & busLines[3]].Name
 
-		aluOperations[0] = AluA  [op.Lines[flags][editStep][editPhase] & (CL_AUSA)].Name
-		aluOperations[1] = AluB  [op.Lines[flags][editStep][editPhase] & (CL_AUSB)].Name
-		aluOperations[2] = AluOp [op.Lines[flags][editStep][editPhase] & (CL_AUIB|CL_AUS1|CL_AUS2|CL_AUO1|CL_AUO2)].Name
-		aluOperations[3] = AluDir[op.Lines[flags][editStep][editPhase] & (CL_AUS1|CL_AUS2|CL_AULR)].Name
+		aluOperations[0] = AluA  [op.Lines[flags][editStep][editPhase] & busLines[4]].Name
+		aluOperations[1] = AluB  [op.Lines[flags][editStep][editPhase] & busLines[5]].Name
+		aluOperations[2] = AluOp [op.Lines[flags][editStep][editPhase] & busLines[6]].Name
+		aluOperations[3] = AluDir[op.Lines[flags][editStep][editPhase] & busLines[7]].Name
 	} else {
 		lines = append(lines, "-------- -------- -------- -------- -------- --------")
 	}

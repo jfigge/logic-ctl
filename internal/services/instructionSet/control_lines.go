@@ -186,8 +186,8 @@ var (
 		CL_AUSA: {"Zeros", 1},
 	}
 	AluB = map[uint64]Ref{
-		0 :      {"Data bus*", 0},
-		CL_AUSB: {"Address bus low", 1},
+		0 :      {"Data Bus*", 0},
+		CL_AUSB: {"Address Bus Low", 1},
 	}
 	AluOp = map[uint64]Ref{
 		0 :                                              {"Logical Shift", 0},
@@ -197,34 +197,34 @@ var (
 		CL_AUS1 | CL_AUS2 | CL_AUO1:                     {"OR", 4},
 		CL_AUS1 | CL_AUS2 | CL_AUO2:                     {"AND", 5},
 		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2:           {"XOR", 6},
-		CL_AUIB:                                         {"Logical Shift", 7},
-		CL_AUIB | CL_AUS1:                               {"Rotation Shift", 8},
-		CL_AUIB | CL_AUS2:                               {"Arithmetic Shift", 9},
-		CL_AUIB | CL_AUS1 | CL_AUS2:                     {"Subtract", 10},
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1:           {"OR", 11},
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO2:           {"AND", 12},
-		CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: {"XOR", 13},
+		//CL_AUIB:                                         {"Logical Shift", 7},
+		//CL_AUIB | CL_AUS1:                               {"Rotation Shift", 8},
+		//CL_AUIB | CL_AUS2:                               {"Arithmetic Shift", 9},
+		//CL_AUIB | CL_AUS1 | CL_AUS2:                     {"Subtract", 10},
+		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1:           {"OR", 11},
+		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO2:           {"AND", 12},
+		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: {"XOR", 13},
 	}
 	AluDir  = map[uint64]Ref{
 		0 :                          {"Left",  0},
 		CL_AULR:                     {"Right", 1},
-		CL_AUS1:                     {"Left",  2},
-		CL_AUS1 | CL_AULR:           {"Right", 3},
-		CL_AUS2:                     {"Left",  4},
-		CL_AUS2 | CL_AULR:           {"Right", 5},
-		CL_AUS1 | CL_AUS2:           {"",      6},
-		CL_AUS1 | CL_AUS2 | CL_AULR: {"",      7},
 	}
 
-	busNames = []string {" DB", "ABH", "ABL", " SB"}//, "ALU-B", "ALU-A", "   OP", "  Dir"}
-	busMaps  = []map[uint64]Ref {OutputsDB, OutputsABH, OutputsABL, OutputsSB}//, AluB, AluB, AluOp, AluDir}
-	busLines = []uint64 {
+	busNames = []string {" DB", "ABH", "ABL", " SB", "  B", "  A", " OP", "Dir"}
+	busMaps  = []map[uint64]Ref {OutputsDB, OutputsABH, OutputsABL, OutputsSB, AluB, AluA, AluOp, AluDir}
+	busLines = []uint64{
 		CL_DBD0 | CL_DBD1 | CL_DBD2,
 		CL_AHD0 | CL_AHD1,
 		CL_ALD0 | CL_ALD1 | CL_ALD2,
 		CL_SBD0 | CL_SBD1 | CL_SBD2,
-		//CL_AUSA, CL_AUSB, CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2, CL_AUS1 | CL_AUS2 | CL_AULR,
+
+		CL_AUSB,
+		CL_AUSA,
+		//CL_AUIB |
+		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2,
+		CL_AULR,
 	}
+
 )
 
 type BusController struct {
