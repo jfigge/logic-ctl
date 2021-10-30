@@ -35,7 +35,7 @@ func NewFlags(log *logging.Log, terminal *display.Terminal, redraw func(bool)) *
 
 func (f *Flags) SetFlags(status uint8) {
 	f.flags = status
-	f.currentFlags = (status & 192) >> 4 | (status & 24) >> 3
+	f.currentFlags = (status & 192) >> 4 | status & 3
 }
 func (f *Flags) SyncFlags() {
 	f.log.Info("Set Developer flags to current flags")
@@ -75,15 +75,15 @@ func (f *Flags) FlagsBlock() string {
 
 func (f *Flags) Toggle() {
 	f.devFlags ^= 1 << (3 - f.cursor.X)
-	f.redraw(false)
+	f.redraw(true)
 }
 func (f *Flags) Up() {
 	f.devFlags |= 1 << (3 - f.cursor.X)
-	f.redraw(false)
+	f.redraw(true)
 }
 func (f *Flags) Down() {
 	f.devFlags &^= 1 << (3 - f.cursor.X)
-	f.redraw(false)
+	f.redraw(true)
 }
 func (f *Flags) Left(n int) {
 	if f.cursor.X - n >= 0 {

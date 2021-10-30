@@ -341,14 +341,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// BVC LABEL
 		// LABEL NOP
 		// the BVC instruction will take 3 cycles no matter what address it is located at.
-		0x10 : brc("BPL", 0x10, 8, false), // Branch on PLus
-		0x30 : brc("BMI", 0x30, 8, true),  // Branch on MInus
-		0x50 : brc("BVC", 0x50, 7, false), // Branch on oVerflow Clear
-		0x70 : brc("BVS", 0x70, 7, true),  // Branch on oVerflow Set
-		0x90 : brc("BCC", 0x90, 1, false), // Branch on Carry Clear
-		0xB0 : brc("BCS", 0xB0, 1, true),  // Branch on Carry Set
-		0xD0 : brc("BNE", 0xD0, 2, false), // Branch on Not Equal
-		0xF0 : brc("BEQ", 0xF0, 2, true),  // Branch on EQual
+		0x10 : brc("BPL", 0x10, 8, 0, false), // Branch on PLus
+		0x30 : brc("BMI", 0x30, 8, 8, true),  // Branch on MInus
+		0x50 : brc("BVC", 0x50, 4, 0, false), // Branch on oVerflow Clear
+		0x70 : brc("BVS", 0x70, 4, 4, true),  // Branch on oVerflow Set
+		0x90 : brc("BCC", 0x90, 1, 0, false), // Branch on Carry Clear
+		0xB0 : brc("BCS", 0xB0, 1, 1, true),  // Branch on Carry Set
+		0xD0 : brc("BNE", 0xD0, 2, 0, false), // Branch on Not Equal
+		0xF0 : brc("BEQ", 0xF0, 2, 2, true),  // Branch on EQual
 
 
 		// BRK (BReaK)
@@ -796,7 +796,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	}
 	return oc
 }
-func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
+func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 	// Branch Instructions
 	oc := new(OpCode)
 	oc.AddrMode  = REL
@@ -804,16 +804,20 @@ func brc(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	oc.Syntax    = fmt.Sprintf("%s Label (Displayment: -128 to +127)", name)
 	oc.OpCode    = opcode
 	oc.Operands  = 1
-	oc.Steps     = 2
+	oc.Steps     = 4
 	oc.PageCross = true
 	oc.Virtual   = false
 	oc.BranchBit = bit
 	oc.BranchSet = value
 	setDefaultLines(oc)
 
-	for flags := 0; flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= 0
-		oc.Lines[flags][0][PHI1] ^= CL_PCIN
+	addressMode(oc)
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][1][PHI1] ^= CL_ALD1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
+		if (flags & bit) != set {
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][1][PHI2] ^= CL_CTMR | CL_PCIN
+		}
 	}
 	return oc
 }
@@ -1082,7 +1086,7 @@ func addressMode(oc *OpCode) *OpCode {
 	oc.usesAM = true
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
-		case IMM:
+		case IMM, REL:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		case ZPG:
@@ -1109,6 +1113,7 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 	var aluOperations [4]string
 
 	if op != nil {
+		truncateStep:
 		for i := uint8(0); i < op.Steps; i++ {
 			colour := lineColor
 			for j := uint8(0); j < 2; j++ {
@@ -1130,6 +1135,9 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 				str := op.uint64ToBinary(op.Lines[flags][i][j], op.Presets[flags][i][j], Defaults[j], colour, j)
 				line := fmt.Sprintf("%s%s Φ%d%s %s %s%s%s", timing, clockColour, j+1, timeMarker, chevron, colour, str, common.Reset)
 				lines = append(lines, line)
+				if op.Lines[flags][i][j] & CL_CTMR == CL_CTMR {
+					break truncateStep
+				}
 			}
 		}
 		lines2 = op.DescribeLine(flags, editStep, editPhase, 8, " ", "", false)

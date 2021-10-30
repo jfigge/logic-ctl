@@ -378,6 +378,9 @@ func (l *ControlLines) LineNamesBlock(clock uint8) []string {
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)
+	if l.cursor.Y > l.steps * 2 {
+		l.cursor.Y = l.steps * 2
+	}
 }
 
 func (b *BusController) Up(n int) {

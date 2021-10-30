@@ -387,8 +387,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 	}
 	t.PrintAtf(66, 20, "%sActiveLines", common.Yellow)
 
-	lines, aLines, outputs, AluOperations = d.opCode.Block(
-		flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2)
+	lines, aLines, outputs, AluOperations = d.opCode.Block(flags, d.step.CurrentStep(), d.clock.CurrentState(), (d.lines.EditStep() - 1) / 2, (d.lines.EditStep() - 1) % 2)
 	d.lines.SetControlLines(d.opCode.Lines[flags])
 	for i := 0; i < 14; i++ {
 		str := ""
@@ -403,6 +402,7 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 
 	// Control line names
 	offset = len(lines)
+	d.lines.SetSteps(uint8(offset / 2))
 	lines = d.lines.LineNamesBlock((d.lines.EditStep() - 1) % 2)
 	for i, line := range lines {
 		t.PrintAt(1, 21 + offset + i, "        " + line)
@@ -616,7 +616,6 @@ func (d *Driver) tickFunc(phaseChange bool) {
 func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
-		d.lines.SetSteps(d.opCode.Steps)
 	}
 	if !d.opCode.Virtual {
 		d.instrAddr = d.address

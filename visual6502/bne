@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# open http://www.visual6502.org/JSSim/expert.html?logmore=aluci,alua,alub,alu,alucout,aluvout,adl,adh,sb&a=0&d=a9cc18B0FF38B0F
+
+open http://www.visual6502.org/JSSim/expert.html?logmore=aluci,alua,alub,alu,alucout,aluvout,adl,adh,sb&a=0&d=4cfd02&a=200d=a202cad0fd
+
