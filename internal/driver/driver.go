@@ -271,8 +271,7 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 	if step == d.step.CurrentStep() &&
 		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
 		d.connected {
-		state, _ := d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
-		d.flags.SetFlags(state)
+		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
 	}
 	d.redraw(true)
 }
@@ -578,9 +577,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		flags = d.flags.CurrentFlags()
 	}
 	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
-	if state2, bool := d.serial.SetLines(lines); bool && state != state2 {
-		d.flags.SetFlags(state)
-	}
+	d.serial.SetLines(lines)
 
 	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {

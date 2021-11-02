@@ -815,40 +815,38 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 		// T1 - Always - Load opCode
 		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
 
 		// Branch
 		if (flags & bit) != set {
 			// Branch not taken -> Ignore ALU and set the program counter to the next instruction
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-			oc.Lines[flags][1][PHI2] ^= CL_CTMR | CL_PCIN
+			oc.Lines[flags][1][PHI2] ^= CL_CTMR | CL_PCIN | CL_AULR
 		} else {
-			// T4 Branch taken -> Add Operand to ADL.  Change to internal flags
-			oc.Lines[flags][1][PHI1] ^= CL_ALD1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
-			oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_PCLL
+			// Branch taken -> Add Operand to ADL.  Change to internal flags
+			oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_PCLL | CL_AULR
 		}
-
-		oc.Lines[flags][1][PHI2] ^= CL_AULR
-		oc.Lines[flags][2][PHI1] ^= CL_AULR
 
 		// Page crossed
 		switch flags & 9 {
 		case 1:
-			// Crossed forward
-			oc.Lines[flags][2][PHI1] ^= 0
+			// Crossed forward (zero -> ALU-A + carry)
+			oc.Lines[flags][2][PHI1] ^= CL_AULR
 			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AULR | CL_SBD2
 
 		case 8:
-			// Crossed backwards
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD0 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
+			// Crossed backwards (-1 -> ALU-B
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD0 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_AULR | CL_SBD0
 			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_SBD2
 
 		default:
 			// Not crossed
-			oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD
-			oc.Lines[flags][2][PHI2] ^= CL_CTMR | CL_PCIN
+			oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULR
+			oc.Lines[flags][2][PHI2] ^= CL_CTMR
 		}
 
-		// Always load next instruction
+		// Load ALU -> ABH, ALU -> PCH
+		oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SBD2
+		oc.Lines[flags][3][PHI2] ^= CL_PCIN
 	}
 	return oc
 }
@@ -1144,7 +1142,7 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 	var aluOperations [4]string
 
 	if op != nil {
-		truncateStep:
+		//truncateStep:
 		for i := uint8(0); i < op.Steps; i++ {
 			colour := lineColor
 			for j := uint8(0); j < 2; j++ {
@@ -1166,9 +1164,9 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 				str := op.uint64ToBinary(op.Lines[flags][i][j], op.Presets[flags][i][j], Defaults[j], colour, j)
 				line := fmt.Sprintf("%s%s Φ%d%s %s %s%s%s", timing, clockColour, j+1, timeMarker, chevron, colour, str, common.Reset)
 				lines = append(lines, line)
-				if op.Lines[flags][i][j] & CL_CTMR == CL_CTMR {
-					break truncateStep
-				}
+				//if op.Lines[flags][i][j] & CL_CTMR == CL_CTMR {
+				//	break truncateStep
+				//}
 			}
 		}
 		lines2 = op.DescribeLine(flags, editStep, editPhase, 8, " ", "", false)

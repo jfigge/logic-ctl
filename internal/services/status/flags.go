@@ -15,7 +15,6 @@ var (
 type Flags struct {
 	flags        uint8
 	currentFlags uint8
-	lastFlags    uint8
 	log          *logging.Log
 	devFlags     uint8
 	terminal     *display.Terminal
@@ -55,24 +54,17 @@ func (f *Flags) FlagsBlock() string {
 	lastColour := ""
 	for n, label := range labels {
 		isSet  := false
-		wasSet := false
 		if bit[n] > 0 {
 			isSet  = f.flags & bit[n] > 0
-			wasSet = f.lastFlags & bit[n] > 0
 		}
 		colour := off
-		if isSet && !wasSet {
-			colour = turnedOn
-		} else if isSet && wasSet {
+		if isSet {
 			colour = on
-		} else if !isSet && wasSet {
-			colour = turnedOff
 		}
 		if colour == lastColour { colour = "" } else { lastColour = colour }
 		str = fmt.Sprintf("%s%s %s ", str, colour, label)
 
 	}
-	f.lastFlags = f.flags
 	return fmt.Sprintf("%s%s", str, common.Reset)
 }
 
