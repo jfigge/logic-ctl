@@ -7,8 +7,8 @@ import (
 )
 
 type Steps struct {
-	step        uint8
-	log          *logging.Log
+	step uint8
+	log  *logging.Log
 }
 func NewSteps(log *logging.Log) *Steps {
 	return &Steps {
@@ -16,8 +16,11 @@ func NewSteps(log *logging.Log) *Steps {
 	}
 }
 
-func (s *Steps) SetStep(status uint8) {
-	s.step = status & 7
+func (s *Steps) SetStep(status uint8) bool {
+	step := status & 7
+	changed := step != s.step
+	s.step = step
+	return changed
 }
 func (s *Steps) CurrentStep() uint8 {
 	return s.step

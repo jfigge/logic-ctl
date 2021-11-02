@@ -811,13 +811,44 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 	oc.BranchSet = value
 	setDefaultLines(oc)
 
-	addressMode(oc)
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][1][PHI1] ^= CL_ALD1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
+		// T1 - Always - Load opCode
+		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+
+		// Branch
 		if (flags & bit) != set {
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_AHLD | CL_ALLD
+			// Branch not taken -> Ignore ALU and set the program counter to the next instruction
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][1][PHI2] ^= CL_CTMR | CL_PCIN
+		} else {
+			// T4 Branch taken -> Add Operand to ADL.  Change to internal flags
+			oc.Lines[flags][1][PHI1] ^= CL_ALD1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
+			oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_PCLL
 		}
+
+		oc.Lines[flags][1][PHI2] ^= CL_AULR
+		oc.Lines[flags][2][PHI1] ^= CL_AULR
+
+		// Page crossed
+		switch flags & 9 {
+		case 1:
+			// Crossed forward
+			oc.Lines[flags][2][PHI1] ^= 0
+			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AULR | CL_SBD2
+
+		case 8:
+			// Crossed backwards
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD0 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
+			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_SBD2
+
+		default:
+			// Not crossed
+			oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD
+			oc.Lines[flags][2][PHI2] ^= CL_CTMR | CL_PCIN
+		}
+
+		// Always load next instruction
 	}
 	return oc
 }
@@ -1143,8 +1174,8 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 		lines2 = op.DescribeLine(flags, editStep, editPhase, 8, " ", "", false)
 
 		outputs[0] = OutputsDB [op.Lines[flags][editStep][editPhase] & busLines[0]].Name
-		outputs[1] = OutputsABL[op.Lines[flags][editStep][editPhase] & busLines[1]].Name
-		outputs[2] = OutputsABH[op.Lines[flags][editStep][editPhase] & busLines[2]].Name
+		outputs[1] = OutputsABL[op.Lines[flags][editStep][editPhase] & busLines[2]].Name
+		outputs[2] = OutputsABH[op.Lines[flags][editStep][editPhase] & busLines[1]].Name
 		outputs[3] = OutputsSB [op.Lines[flags][editStep][editPhase] & busLines[3]].Name
 
 		aluOperations[0] = AluA  [op.Lines[flags][editStep][editPhase] & busLines[4]].Name

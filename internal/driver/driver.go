@@ -76,7 +76,7 @@ func New() *Driver {
 	d.flags        = status.NewFlags(d.log, d.display, d.redraw)
 	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
-	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.connectionStatus, d.wg)
+	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.flags, d.step, d.connectionStatus, d.wg)
 	d.instrAddr    = 0
 	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory, d.lines.BusController())
 	d.editor       = 0
@@ -266,15 +266,15 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 				d.opCode.Lines[flags][step][1-clock] = d.opCode.Lines[flags][step][1-clock] | mask
 			}
 		}
-
-		d.redraw(false)
 	}
 
 	if step == d.step.CurrentStep() &&
 		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
 		d.connected {
-		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
+		state, _ := d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
+		d.flags.SetFlags(state)
 	}
+	d.redraw(true)
 }
 
 func (d *Driver) redraw(clearScreen bool) {
@@ -548,7 +548,8 @@ func (d *Driver) Process(input common.Input) bool {
 
 func (d *Driver) tickFunc(phaseChange bool) {
 
-	if state, ok := d.serial.ReadStatus(); ok {
+	state, ok := d.serial.ReadStatus()
+	if ok {
 		d.step.SetStep(state)
 		d.flags.SetFlags(state)
 	} else {
@@ -577,7 +578,9 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		flags = d.flags.CurrentFlags()
 	}
 	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
-	d.serial.SetLines(lines)
+	if state2, bool := d.serial.SetLines(lines); bool && state != state2 {
+		d.flags.SetFlags(state)
+	}
 
 	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {

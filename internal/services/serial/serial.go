@@ -23,6 +23,8 @@ type Serial struct {
 	status       chan byte
 	terminated   bool
 	connected    bool
+	steps        *status.Steps
+	flags        *status.Flags
 	clock        *status.Clock
 	irq          *status.Irq
 	nmi          *status.Nmi
@@ -33,22 +35,24 @@ type Serial struct {
 	stopCapture  func()
 	mode         *srl.Mode
 }
-func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, connStatus func(bool), wg *sync.WaitGroup) *Serial {
+func New(log *logging.Log, clock *status.Clock, irq *status.Irq, nmi *status.Nmi, reset *status.Reset, flags *status.Flags, steps *status.Steps, connStatus func(bool), wg *sync.WaitGroup) *Serial {
 	s := &Serial{
-		clock:        clock,
-		irq:          irq,
-		nmi:           nmi,
-		reset:        reset,
-		log:          log,
-		terminated:   false,
-		connected:    false,
-		connStatus:   connStatus,
-		buffer:       make(chan byte),
-		address:      make(chan []byte),
-		data:         make(chan byte),
-		status:       make(chan byte),
-		opCode:       make(chan byte),
-		mode:         &srl.Mode {
+		clock:      clock,
+		irq:        irq,
+		nmi:         nmi,
+		reset:      reset,
+		steps:      steps,
+		flags:      flags,
+		log:        log,
+		terminated: false,
+		connected:  false,
+		connStatus: connStatus,
+		buffer:     make(chan byte),
+		address:    make(chan []byte),
+		data:       make(chan byte),
+		status:     make(chan byte),
+		opCode:     make(chan byte),
+		mode:       &srl.Mode {
 			DataBits: config.CLIConfig.Serial.DataBits,
 			BaudRate: config.CLIConfig.Serial.BaudRate,
 			StopBits: toStopBits(config.CLIConfig.Serial.StopBits),
@@ -210,9 +214,9 @@ func (s *Serial) SetData(data uint8) bool {
 	e := <-s.data
 	return e == 0
 }
-func (s *Serial) SetLines(data uint64) bool {
+func (s *Serial) SetLines(data uint64) (uint8, bool) {
 	if !s.connected {
-		return false
+		return 0, false
 	}
 
 	// Send command
@@ -220,12 +224,13 @@ func (s *Serial) SetLines(data uint64) bool {
 	s.log.Debugf("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
 	if n, err := s.port.Write(bs); err != nil {
 		s.log.Errorf("Failed to send request to set lines: %v", err)
-		return false
+		return 0, false
 	} else if n != 8 {
 		s.log.Errorf("Unexpected number of bytes sent.  Expected 8, sent: %d", n)
-		return false
+		return 0, false
 	}
-	return true
+
+	return s.ReadStatus()
 }
 
 func (s *Serial) portMonitor(wg *sync.WaitGroup) {
@@ -341,7 +346,6 @@ func (s *Serial) ResetChannels() {
 		case <-s.address:
 		case <-s.opCode:
 		case <-s.data:
-		case <-s.status:
 		default:
 			if s.port != nil {
 				s.port.Close()

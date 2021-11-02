@@ -26,16 +26,19 @@ type Flags struct {
 func NewFlags(log *logging.Log, terminal *display.Terminal, redraw func(bool)) *Flags {
 	return &Flags{
 		log:      log,
-		Ignore:   true,
+		Ignore:   false,
 		redraw:   redraw,
 		terminal: terminal,
 		cursor:   common.Coord{X:0, Y:0},
 	}
 }
 
-func (f *Flags) SetFlags(status uint8) {
+func (f *Flags) SetFlags(status uint8) bool {
 	f.flags = status
-	f.currentFlags = (status & 192) >> 4 | status & 3
+	currentFlags := (status & 192) >> 4 | status & 24 >> 3
+	changed := f.currentFlags != currentFlags
+	f.currentFlags = currentFlags
+	return changed
 }
 func (f *Flags) SyncFlags() {
 	f.log.Info("Set Developer flags to current flags")
@@ -54,8 +57,8 @@ func (f *Flags) FlagsBlock() string {
 		isSet  := false
 		wasSet := false
 		if bit[n] > 0 {
-			isSet  = f.flags&bit[n] > 0
-			wasSet = f.lastFlags&bit[n] > 0
+			isSet  = f.flags & bit[n] > 0
+			wasSet = f.lastFlags & bit[n] > 0
 		}
 		colour := off
 		if isSet && !wasSet {
