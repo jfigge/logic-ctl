@@ -812,12 +812,14 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 	setDefaultLines(oc)
 
 	for flags := uint8(0); flags < 16; flags++ {
-		// T1 - Always - Load opCode
+		// T1 - Always - Load relative offset byte
 		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
+
+		// T2 - Add offset to ADL / Load next instruction address
 		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSB | CL_SBD1
 
-		// Branch
+		// T2 - Branch or not
 		if (flags & bit) != set {
 			// Branch not taken -> Ignore ALU and set the program counter to the next instruction
 			oc.Lines[flags][1][PHI2] ^= CL_CTMR | CL_PCIN | CL_AULR
@@ -826,12 +828,12 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 			oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_PCLL | CL_AULR
 		}
 
-		// Page crossed
+		// Page cross check.  Note we're using the secondary flags
 		switch flags & 9 {
 		case 1:
 			// Crossed forward (zero -> ALU-A + carry)
-			oc.Lines[flags][2][PHI1] ^= CL_AULR
-			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AULR | CL_SBD2
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_DBD0 | CL_AULB | CL_AULA | CL_AUIB | CL_AULR | CL_SBD0
+			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AULA | CL_AULR | CL_SBD2 | CL_CENB
 
 		case 8:
 			// Crossed backwards (-1 -> ALU-B
@@ -841,10 +843,10 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 		default:
 			// Not crossed
 			oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULR
-			oc.Lines[flags][2][PHI2] ^= CL_CTMR
+			oc.Lines[flags][2][PHI2] ^= CL_CTMR | CL_PCIN
 		}
 
-		// Load ALU -> ABH, ALU -> PCH
+		// T4 - Load ALU -> ABH, ALU -> PCH
 		oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SBD2
 		oc.Lines[flags][3][PHI2] ^= CL_PCIN
 	}

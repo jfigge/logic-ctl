@@ -1,8 +1,13 @@
-  jmp $82fd
+  jmp $82f5
+  .org $02f5
+  ldy  #$02
+  dey
+  beq next
+  jmp $82f7
   .org $02fd
-start:
   ldx  #$02
 loop:
   dex
   bne  loop
-  jmp  $82fd
+next:
+  jmp  $82f5
