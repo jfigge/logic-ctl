@@ -129,13 +129,13 @@ var (
 		{"Special Bus driver 2-bit",""},
 		{"Special Bus driver 4-bit",""},
 		// EPROM 3b
-		{"Flag select V-A (0=Reg/Manual, 1=CPU/Bus)",""},
+		{"Flag select V-A (0=Reg/Manual, 1=CPU/Load)",""},
 		{"Flag select NZI-B (0=first, 1=second)",""},
 		{"Flag select V-B (0=first, 1=second)",""},
 		{"Flag select C-B (0=first, 1=second)",""},
-		{"Flag select C-A (0=Reg/Manual, 1=CPU/Bus)",""},
+		{"Flag select C-A (0=Reg/Manual, 1=CPU/Load)",""},
 		{"Manual setting line for flags",""},
-		{"Flag select NZI A (0=Reg/Manual(I), 1=Reg/Bus)",""},
+		{"Flag select NZI A (0=Reg/Reg(Manual-I), 1=CPU/Load)",""},
 		{"Enable carry-in for ALU",""},
 	}
 
