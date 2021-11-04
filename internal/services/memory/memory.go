@@ -176,10 +176,6 @@ func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 	return m.memory[address], true
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
-	//if address < 0x6000 {
-	//	m.log.Errorf("Cannot write %s to ROM address %s", display.HexData(data), display.HexAddress(address))
-	//	return false
-	//}
 	m.memory[address] = data
 	m.lastAction = written
 	m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(m.memory[address]))
