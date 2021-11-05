@@ -258,19 +258,9 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 		case 4:
 			d.opCode.Lines[flags][step][clock] = bit
 		}
-
-		if mask == instructionSet.CL_DBRW {
-			if d.opCode.Lines[flags][step][clock] & mask == 0 {
-				d.opCode.Lines[flags][step][1-clock] = d.opCode.Lines[flags][step][1-clock] &^ mask
-			} else {
-				d.opCode.Lines[flags][step][1-clock] = d.opCode.Lines[flags][step][1-clock] | mask
-			}
-		}
 	}
 
-	if step == d.step.CurrentStep() &&
-		(clock == d.clock.CurrentState() || mask == instructionSet.CL_DBRW) &&
-		d.connected {
+	if step == d.step.CurrentStep() && clock == d.clock.CurrentState() && d.connected {
 		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
 	}
 	d.redraw(true)
@@ -588,23 +578,25 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		return
 	}
 
-	if d.clock.CurrentState() == instructionSet.PHI1 || lines & instructionSet.CL_DBRW != 0 {
-		if data, ok := d.memory.ReadMemory(d.address); ok {
-			d.serial.SetData(data)
-		} else {
-			d.log.Errorf("Failed to read memory address %s during tick", display.HexAddress(d.address))
-			return
-		}
-	} else {
-		if data, ok := d.serial.ReadData(); ok {
-			if ok = d.memory.WriteMemory(d.address, data); !ok {
-				d.log.Warnf("Failed to write %s @ %s", display.HexAddress(d.address), display.HexData(data))
+	if d.address < 0x6000 || d.address >=0x6200 {
+		if d.clock.CurrentState() == instructionSet.PHI1 || lines&instructionSet.CL_DBRW != 0 {
+			if data, ok := d.memory.ReadMemory(d.address); ok {
+				d.serial.SetData(data)
+			} else {
+				d.log.Errorf("Failed to read memory address %s during tick", display.HexAddress(d.address))
 				return
 			}
 		} else {
-			d.log.Errorf("Failed to read data during tick")
-			d.ResetChannels()
-			return
+			if data, ok := d.serial.ReadData(); ok {
+				if ok = d.memory.WriteMemory(d.address, data); !ok {
+					d.log.Warnf("Failed to write %s @ %s", display.HexAddress(d.address), display.HexData(data))
+					return
+				}
+			} else {
+				d.log.Errorf("Failed to read data during tick")
+				d.ResetChannels()
+				return
+			}
 		}
 	}
 

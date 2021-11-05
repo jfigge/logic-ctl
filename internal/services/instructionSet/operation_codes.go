@@ -257,7 +257,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// address (i.e. jump table addresses are made up of addresses-1 when it is intended to use an RTS rather than
 		// a JMP).
 		//
-		// The program counter is loaded least signifigant byte first. Therefore the most signifigant byte must be
+		// The program counter is loaded least significant byte first. Therefore the most significant byte must be
 		// pushed first when creating a false return address.
 		//
 		// When calculating branches a forward branch of 6 skips the following 6 bytes so, effectively the program
@@ -273,14 +273,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N V Z C
 		// ADC results are dependant on the setting of the decimal flag. In decimal mode, addition is carried out on the assumption that the values involved are packed BCD (Binary Coded Decimal).
 		// There is no way to add without carry.
-		0x69 : mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C),
-		0x65 : mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C),
-		0x75 : mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C),
-		0x6D : mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C),
-		0x7D : mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C),
-		0x79 : mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C),
-		0x61 : mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C),
-		0x71 : mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C),
+		0x69 : add(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C)),
+		0x65 : add(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C)),
+		0x75 : add(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C)),
+		0x6D : add(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C)),
+		0x7D : add(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C)),
+		0x79 : add(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C)),
+		0x61 : add(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C)),
+		0x71 : add(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C)),
 
 
 		// AND (bitwise AND with accumulator)
@@ -440,13 +440,13 @@ func defineOpCodes() map[uint8]*OpCode {
 		// the overflow flag is 0 (-127 + -1 = -128). The overflow flag is not affected by increments, decrements,
 		// shifts and logical operations i.e. only ADC, BIT, CLV, PLP, RTI and SBC affect it. There is no op code to
 		// set the overflow but a BIT test on an RTS instruction will do the trick.
-		0x18 : ups("CLC", 0x18, 1, false), // CLear Carry
-		0xD8 : ups("CLD", 0xD8, 4, false), // CLear Decimal
-		0x58 : ups("CLI", 0x58, 3, false), // CLear Interrupt
-		0xB8 : ups("CLV", 0xB8, 7, false), // CLear oVerflow
-		0x38 : ups("SEC", 0x38, 1, true), // SEt Carry
-		0xF8 : ups("SED", 0xF8, 4, true), // SEt Decimal
-		0x78 : ups("SEI", 0x78, 3, true), // SEt Interrupt
+		0x18 : ups("CLC", 0x18, C, false), // CLear Carry
+		0xD8 : ups("CLD", 0xD8, D, false), // CLear Decimal
+		0x58 : ups("CLI", 0x58, I, false), // CLear Interrupt
+		0xB8 : ups("CLV", 0xB8, V, false), // CLear oVerflow
+		0x38 : ups("SEC", 0x38, C, true),  // SEt Carry
+		0xF8 : ups("SED", 0xF8, D, true),  // SEt Decimal
+		0x78 : ups("SEI", 0x78, I, true),  // SEt Interrupt
 
 
 		// INC (Increment memory)
@@ -642,12 +642,12 @@ func defineOpCodes() map[uint8]*OpCode {
 		// These instructions are implied mode, have a length of one byte and require machine cycles as indicated.
 		// The "PuLl" operations are known as "POP" on most other microprocessors. With the 6502, the stack is always
 		// on page one ($100-$1FF) and works top down.
-		0x9A : stk("TXS", 0x9A, 3, true,  0,       CL_DBD0 | CL_DBD2, CL_SBD0 | CL_SBD2), // Transfer X to Stack ptr
-		0xBA : stk("TSX", 0xBA, 2, false, N|Z,     CL_DBD0 | CL_DBD2, CL_SBD0 | CL_SBD2), // Transfer Stack ptr to X
-		0x48 : stk("PHA", 0x48, 3, true,  0,       CL_DBD0 | CL_DBD2, CL_SBD0 | CL_SBD1 | CL_SBD2), // PusH Accumulator
-		0x68 : stk("PLA", 0x68, 2, false, N|Z,     CL_DBD0 | CL_DBD2, CL_SBD0 | CL_SBD1 | CL_SBD2), // PuLl Accumulator
-		0x08 : stk("PHP", 0x08, 3, true,  0,       CL_DBD2, 0), // PusH Processor status
-		0x28 : stk("PLP", 0x28, 2, false, N|Z|C|V, CL_DBD2, 0), // PuLl Processor status
+		0x9A : stk("TXS", 0x9A, 3, true,  0,           CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2, 0),                       // Transfer X to Stack ptr
+		0xBA : stk("TSX", 0xBA, 4, false, N|Z,         CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2, CL_SBLX), // Transfer Stack ptr to X
+		0x48 : stk("PHA", 0x48, 3, true,  0,           CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),       // PusH Accumulator
+		0x68 : stk("PLA", 0x68, 4, false, N|Z,         CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA), // PuLl Accumulator
+		0x08 : stk("PHP", 0x08, 3, true,  0,           CL_DBD2, 0), // PusH Processor status
+		0x28 : stk("PLP", 0x28, 4, false, N|Z|B|I|C|V, CL_DBD2, CL_SBD1 | CL_FSVA | CL_FSIB | CL_FSVB | CL_FSCB | CL_FSCA | CL_FSIA), // PuLl Processor status
 
 
 		// STX (STore X register)
@@ -733,7 +733,7 @@ func wordAddressMode(oc *OpCode, flags uint8) *OpCode {
 }
 
 // Base opcode types
-func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool, flags uint8) *OpCode {
+func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool, pflags uint8) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = addrMode
 	oc.Name      = name
@@ -745,7 +745,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.Virtual   = opcode != 0
 	oc.BranchBit = 0
 	oc.BranchSet = false
-	oc.Flags     = flags
+	oc.Flags     = pflags
 	setDefaultLines(oc)
 
 	for flags := uint8(0); flags < 16; flags++ {
@@ -767,9 +767,11 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 		switch opcode {
 		case 0x00: // Break
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
+			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
+			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_DBRW | CL_ALC0
 
 		case 0x02: // Reset
 			oc.Lines[flags][0][PHI1] ^= CL_CRST
@@ -782,16 +784,20 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 			oc.Lines[flags][0][PHI1] ^= CL_CRST
 			oc.Lines[flags][0][PHI2] ^= CL_FMAN
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
+			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
+			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_ALC2 | CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_DBRW| CL_ALC2 | CL_ALC0
 			oc.Lines[flags][5][PHI1] ^= CL_ALC2
 
 		case 0x22: // IRQ
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
+			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
+			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_DBRW | CL_ALC0
 		}
 	}
 	return oc
@@ -852,7 +858,7 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 	}
 	return oc
 }
-func ups(name string, opcode uint8, bit uint8, value bool) *OpCode {
+func ups(name string, opcode uint8, flag uint8, value bool) *OpCode {
 	// Flag (Processor Status) Instructions
 	oc := new(OpCode)
 	oc.AddrMode  = IMP
@@ -863,9 +869,26 @@ func ups(name string, opcode uint8, bit uint8, value bool) *OpCode {
 	oc.Steps     = 2
 	oc.PageCross = false
 	oc.Virtual   = false
-	oc.BranchBit = bit
+	oc.BranchBit = flag
 	oc.BranchSet = value
+
 	setDefaultLines(oc)
+	for flags := uint8(0); flags < 16; flags++ {
+		switch flag {
+		case C:
+			oc.Lines[flags][0][PHI2] ^= CL_FSCB
+		case D:
+			// Not implemented
+		case V:
+			oc.Lines[flags][0][PHI2] ^= CL_FSVB
+		case I:
+			oc.Lines[flags][0][PHI2] ^= CL_FSIB
+		}
+		if value {
+			oc.Lines[flags][0][PHI2] ^= CL_FMAN
+		}
+		loadNextInstruction(oc, flags)
+	}
 	return oc
 }
 func reg(name string, opcode uint8) *OpCode {
@@ -915,7 +938,7 @@ func reg(name string, opcode uint8) *OpCode {
 	}
 	return oc
 }
-func stk(name string, opcode uint8, timing uint8, push bool, flags uint8, dataBusLines uint64, specialBusLines uint64) *OpCode {
+func stk(name string, opcode uint8, timing uint8, push bool, pflags uint8, readLines uint64, loadLine uint64) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = IMP
 	oc.Name      = name
@@ -927,16 +950,25 @@ func stk(name string, opcode uint8, timing uint8, push bool, flags uint8, dataBu
 	oc.Virtual   = false
 	oc.BranchBit = 0
 	oc.BranchSet = false
-	oc.Flags     = flags
+	oc.Flags     = pflags
 	setDefaultLines(oc)
 
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= CL_AULA
-		oc.Lines[flags][0][PHI2] ^= 0
-		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD2 | CL_ALD2 | CL_DBRW | CL_ALLD | CL_AHLD | CL_AULB | CL_AUSB | dataBusLines | specialBusLines
-		oc.Lines[flags][1][PHI2] ^= CL_DBRW
-		oc.Lines[flags][2][PHI1] ^= CL_SPLD | CL_SBD2
-		oc.Lines[flags][2][PHI2] ^= 0
+		if push {
+			oc.Lines[flags][0][PHI1] ^= CL_AULA
+			oc.Lines[flags][0][PHI2] ^= 0
+			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD2 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AUSB | readLines
+			oc.Lines[flags][1][PHI2] ^= CL_DBRW
+			oc.Lines[flags][2][PHI1] ^= CL_DBRW | CL_SPLD | CL_SBD2
+			oc.Lines[flags][2][PHI2] ^= 0
+		} else {
+			oc.Lines[flags][0][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
+			oc.Lines[flags][0][PHI2] ^= 0
+			oc.Lines[flags][2][PHI1] ^= 0
+			oc.Lines[flags][2][PHI2] ^= 0
+			oc.Lines[flags][2][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_SBD2
+			oc.Lines[flags][2][PHI2] ^= CL_SBD1 | loadLine
+		}
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -960,12 +992,11 @@ func jsr() *OpCode {
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
 		oc.Lines[flags][1][PHI2] ^= 0
-		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB
 		oc.Lines[flags][2][PHI2] ^= CL_DBD1 | CL_DBRW
-		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_DBRW | CL_AULB | CL_AUSB
 		oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD1 | CL_DBRW
-
-		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
+		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_DBRW
 		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_ALD2 | CL_PCLL | CL_PCLH
 
 		oc.Lines[flags][5][PHI1] ^= CL_SPLD | CL_SBD2
@@ -1002,7 +1033,6 @@ func jmp(addrMode uint8, syntax string, opcode uint8, steps uint8) *OpCode {
 	}
 	return oc
 }
-
 func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8, steps uint8, pageCross bool, flags uint8) *OpCode {
 	oc := new(OpCode)
 	oc.AddrMode  = addrMode
@@ -1058,9 +1088,9 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 		case ZPG:
 		case ZPX:
 		case ABS:
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_DBRW | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
-			oc.Lines[flags][3][PHI1] ^= 0
+			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= 0
 		case ABX:
 		case ABY:
@@ -1080,12 +1110,20 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 	}
 	return oc
 }
-func logic(oc *OpCode,aluOp uint64, aluA uint64) *OpCode {
+func add(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
 			oc.Lines[flags][1][PHI1] ^= aluOp | CL_AULB | aluA
-			oc.Lines[flags][1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2
+			oc.Lines[flags][1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
 		case ZPG:
 		case ZPX:
 		case ABS:
@@ -1257,10 +1295,6 @@ func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bo
 		if clock != PHI1 {
 			return "Address bus high can only be loaded on phi-1", false
 		}
-//	case CL_AULA:
-//		if clock != PHI1 {
-//			return "ALU A register can only be loaded on phi-1", false
-//		}
 	case CL_AULB:
 		if clock != PHI1 {
 			return "ALU B register can only be loaded on phi-1", false
