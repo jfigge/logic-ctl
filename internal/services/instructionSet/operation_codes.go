@@ -111,8 +111,7 @@ const (
 	// invalid actual address
 	IND
 
-	// Operates on the Accumulator and not any address
-
+	// ACC Operates on the Accumulator and not any address
 	ACC
 
 	opCodes     = "internal/services/instructionSet/opCodes.bin"
@@ -273,14 +272,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N V Z C
 		// ADC results are dependant on the setting of the decimal flag. In decimal mode, addition is carried out on the assumption that the values involved are packed BCD (Binary Coded Decimal).
 		// There is no way to add without carry.
-		0x69 : add(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C)),
-		0x65 : add(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C)),
-		0x75 : add(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C)),
-		0x6D : add(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C)),
-		0x7D : add(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C)),
-		0x79 : add(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C)),
-		0x61 : add(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C)),
-		0x71 : add(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C)),
+		0x69 : alu(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C), false),
+		0x65 : alu(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C), false),
+		0x75 : alu(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C), false),
+		0x6D : alu(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C), false),
+		0x7D : alu(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C), false),
+		0x79 : alu(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C), false),
+		0x61 : alu(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C), false),
+		0x71 : alu(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C), false),
 
 
 		// AND (bitwise AND with accumulator)
@@ -556,21 +555,21 @@ func defineOpCodes() map[uint8]*OpCode {
 		// ROL (ROtate Left)
 		// Affects Flags: N Z C
 		// ROL shifts all bits left one position. The Carry is shifted into bit 0 and the original bit 7 is shifted into the Carry.
-		0x2A : mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C),
-		0x26 : mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C),
-		0x36 : mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C),
-		0x2E : mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C),
-		0x3E : mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C),
+		0x2A : rotate(mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C)),
+		0x26 : rotate(mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C)),
+		0x36 : rotate(mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C)),
+		0x2E : rotate(mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C)),
+		0x3E : rotate(mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C)),
 
 
 		// ROR (ROtate Right)
 		// Affects Flags: N Z C
 		// ROR shifts all bits right one position. The Carry is shifted into bit 7 and the original bit 0 is shifted into the Carry.
-		0x6A : mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C),
-		0x66 : mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C),
-		0x76 : mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C),
-		0x6E : mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C),
-		0x7E : mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C),
+		0x6A : rotate(mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C)),
+		0x66 : rotate(mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C)),
+		0x76 : rotate(mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C)),
+		0x6E : rotate(mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C)),
+		0x7E : rotate(mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C)),
 
 
 		// RTI (ReTurn from Interrupt)
@@ -617,14 +616,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		//
 		// There is no way to subtract without the carry which works as an inverse borrow. i.e, to subtract you set the
 		// carry before the operation. If the carry is cleared by the operation, it indicates a borrow occurred.
-		0xE9 : mop(IMM, "SBC", "#$44",    0xE9, 2, 2, false, N|V|Z|C),
-		0xE5 : mop(ZPG, "SBC", "$44",     0xE5, 2, 3, false, N|V|Z|C),
-		0xF5 : mop(ZPX, "SBC", "$44,X",   0xF5, 2, 4, false, N|V|Z|C),
-		0xED : mop(ABS, "SBC", "$4400",   0xED, 3, 4, false, N|V|Z|C),
-		0xFD : mop(ABX, "SBC", "$4400,X", 0xFD, 3, 4, true,  N|V|Z|C),
-		0xF9 : mop(ABY, "SBC", "$4400,Y", 0xF9, 3, 4, true,  N|V|Z|C),
-		0xE1 : mop(IZX, "SBC", "($44,X)", 0xE1, 2, 6, false, N|V|Z|C),
-		0xF1 : mop(IZY, "SBC", "($44),Y", 0xF1, 2, 5, true,  N|V|Z|C),
+		0xE9 : alu(mop(IMM, "SBC", "#$44",    0xE9, 2, 2, false, N|V|Z|C), true),
+		0xE5 : alu(mop(ZPG, "SBC", "$44",     0xE5, 2, 3, false, N|V|Z|C), true),
+		0xF5 : alu(mop(ZPX, "SBC", "$44,X",   0xF5, 2, 4, false, N|V|Z|C), true),
+		0xED : alu(mop(ABS, "SBC", "$4400",   0xED, 3, 4, false, N|V|Z|C), true),
+		0xFD : alu(mop(ABX, "SBC", "$4400,X", 0xFD, 3, 4, true,  N|V|Z|C), true),
+		0xF9 : alu(mop(ABY, "SBC", "$4400,Y", 0xF9, 3, 4, true,  N|V|Z|C), true),
+		0xE1 : alu(mop(IZX, "SBC", "($44,X)", 0xE1, 2, 6, false, N|V|Z|C), true),
+		0xF1 : alu(mop(IZY, "SBC", "($44),Y", 0xF1, 2, 5, true,  N|V|Z|C), true),
 
 
 		// STA (STore Accumulator)
@@ -647,7 +646,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		0x48 : stk("PHA", 0x48, 3, true,  0,           CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),       // PusH Accumulator
 		0x68 : stk("PLA", 0x68, 4, false, N|Z,         CL_DBD0 | CL_DBD1 | CL_DBD2 | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA), // PuLl Accumulator
 		0x08 : stk("PHP", 0x08, 3, true,  0,           CL_DBD2, 0), // PusH Processor status
-		0x28 : stk("PLP", 0x28, 4, false, N|Z|B|I|C|V, CL_DBD2, CL_SBD1 | CL_FSVA | CL_FSIB | CL_FSVB | CL_FSCB | CL_FSCA | CL_FSIA), // PuLl Processor status
+		0x28 : stk("PLP", 0x28, 4, false, N|Z|B|I|C|V, CL_DBD2, CL_FSVA | CL_FSIB | CL_FSVB | CL_FSCB | CL_FSCA | CL_FSIA), // PuLl Processor status
 
 
 		// STX (STore X register)
@@ -1110,10 +1109,18 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 	}
 	return oc
 }
-func add(oc *OpCode) *OpCode {
+func alu(oc *OpCode, invert bool) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func rotate(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
+		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_AUS2 | CL_AULR | CL_SBLA | CL_SBD2 | CL_FSCA
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1155,6 +1162,8 @@ func addressMode(oc *OpCode) *OpCode {
 	oc.usesAM = true
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
+		case ACC:
+			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_DBD2
 		case IMM, REL:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
@@ -1285,6 +1294,8 @@ func (op *OpCode) uint64ToBinary(qword uint64, presetQword uint64, defaultQword 
 func (op *OpCode) ValidateLine(step uint8, clock uint8, bit uint64 ) (string, bool) {
 	// Validation on which bits can be set when.
 	switch uint64(1 << bit) {
+	case CL_PAUS:
+		return "Break points can only be set using 'b'", false
 	case CL_CTMR:
 		return "Timer reset cannot be changed", false
 	case CL_ALLD:

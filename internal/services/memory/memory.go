@@ -26,12 +26,23 @@ var colorSet = [][]interface{}{
 		{common.Magenta, "", "", "", "", "", "", common.Grey, common.Reset},
 	}
 
+type disassemblyEntry struct {
+	line string
+	address uint16
+}
+type memoryEntry struct {
+	data             byte
+	opCode           bool
+	breakpoint       bool
+	disassembleIndex uint16
+	void             bool
+}
 type Memory struct {
 	filename       string
 	size           uint16
-	memory         [65536]byte
+	memory         [65536]*memoryEntry
 	lastAction     string
-	disassembly    map[uint16]string
+	disassembly    []disassemblyEntry
 	opCodes        *instructionSet.OpCodes
 	log            *logging.Log
 	baseAddress    uint16
@@ -69,20 +80,28 @@ func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16) bo
 		return false
 	} else {
 		for i := uint16(0); i < uint16(len(bs)); i++ {
-			m.memory[i+baseAddress] = bs[i]
+			m.memory[i+baseAddress] = &memoryEntry{data: bs[i]}
 		}
-		m.memory[0xfffc] = 0x00
-		m.memory[0xfffd] = 0x80
+		m.memory[0xfffc] = &memoryEntry{data: 0x00, opCode: false}
+		m.memory[0xfffd] = &memoryEntry{data: 0x80, opCode: false}
 		m.disassembly = m.disassemble(uint16(len(bs)))
 		m.log.Infof("%d byte(s) read.", len(bs))
 		return true
 	}
 }
-func (m *Memory) disassemble(size uint16) map[uint16]string {
+func (m* Memory) getEntry(address uint16) *memoryEntry {
+	if entry := m.memory[address]; entry != nil {
+		return entry
+	} else {
+		m.memory[address] = &memoryEntry{void: true}
+		return m.memory[address]
+	}
+}
+func (m *Memory) disassemble(size uint16) []disassemblyEntry {
 	m.size = size
 	addr := m.baseAddress
 	var lo, hi uint8 = 0, 0
-	mapLines := map[uint16]string{}
+	var lines []disassemblyEntry
 	var lineAddr uint16 = 0
 
 	for addr <= addr + size {
@@ -92,7 +111,10 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 		sInst := fmt.Sprintf("%%s$%s: ", display.HexAddress(lineAddr))
 
 		// Read instruction, and get its readable name
-		opCode := m.opCodes.Lookup(m.memory[addr])
+		me := m.getEntry(addr)
+		me.opCode = true
+		me.disassembleIndex = uint16(len(lines))
+		opCode := m.opCodes.Lookup(me.data)
 		sInst = fmt.Sprintf("%s%%s%s%%s ", sInst, opCode.Name)
 		addr++
 
@@ -101,61 +123,64 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 		// routines mimic the actual fetch routine of the
 		// 6502 in order to get accurate data as part of the
 		// instruction
-		if opCode.AddrMode == instructionSet.IMP {
+		switch opCode.AddrMode {
+		case instructionSet.ACC:
+			fallthrough
+		case instructionSet.IMP:
 			sInst = fmt.Sprintf("%s%%s%%s%%s%%s          %%sIMP", sInst)
-		} else if opCode.AddrMode == instructionSet.IMM {
-			lo = m.memory[addr]
+		case instructionSet.IMM:
+			lo = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s#$%%s%s%%s%%s%%s      %%sIMM", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ZPG {
-			lo = m.memory[addr]
+		case instructionSet.ZPG:
+			lo = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%sZPG", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ZPX {
-			lo = m.memory[addr]
+		case instructionSet.ZPX:
+			lo = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%s%s,X%%s%%s%%s     %%sZPX", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ZPY {
-			lo = m.memory[addr]
+		case instructionSet.ZPY:
+			lo = m.getEntry(addr).data
 			addr++
 			//sInst += "$" + display.HexData(lo) + ", Y {ZPY}"
 			sInst = fmt.Sprintf("%s$%%s%s,Y%%s%%s%%s     %%sZPY", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.IZX {
-			lo = m.memory[addr]
+		case instructionSet.IZX:
+			lo = m.getEntry(addr).data
 			addr++
 			//sInst += "($" + display.HexData(lo) + ", X) {IZX}"
 			sInst = fmt.Sprintf("%s($%%s%s,X)%%s%%s%%s   %%sIZX", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.IZY {
-			lo = m.memory[addr]
+		case instructionSet.IZY:
+			lo = m.getEntry(addr).data
 			addr++
 			//sInst += "($" + display.HexData(lo) + "), Y {IZY}"
 			sInst = fmt.Sprintf("%s($%%s%s,Y)%%s%%s%%s   %%sIZY", sInst, display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ABS {
-			lo = m.memory[addr]
+		case instructionSet.ABS:
+			lo = m.getEntry(addr).data
 			addr++
-			hi = m.memory[addr]
+			hi = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s%%[5]s     %%[8]sABS", sInst, display.HexData(hi), display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ABX {
-			lo = m.memory[addr]
+		case instructionSet.ABX:
+			lo = m.getEntry(addr).data
 			addr++
-			hi = m.memory[addr]
+			hi = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,X%%[5]s   %%[8]sABX", sInst, display.HexData(hi), display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.ABY {
-			lo = m.memory[addr]
+		case instructionSet.ABY:
+			lo = m.getEntry(addr).data
 			addr++
-			hi = m.memory[addr]
+			hi = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,Y%%[5]s   %%[8]sABY", sInst, display.HexData(hi), display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.IND {
-			lo = m.memory[addr]
+		case instructionSet.IND:
+			lo = m.getEntry(addr).data
 			addr++
-			hi = m.memory[addr]
+			hi = m.getEntry(addr).data
 			addr++
 			sInst = fmt.Sprintf("%s($%%[6]s%s%%[7]s%%[4]s%s)%%[5]s   %%[8]sIND", sInst, display.HexData(hi), display.HexData(lo))
-		} else if opCode.AddrMode == instructionSet.REL {
-			lo = m.memory[addr]
+		case instructionSet.REL:
+			lo = m.getEntry(addr).data
 			addr++
 			//sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
 			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%sREL", sInst, display.HexData(lo))
@@ -165,23 +190,60 @@ func (m *Memory) disassemble(size uint16) map[uint16]string {
 		// address as the key. This makes it convenient to look for later
 		// as the instructions are variable in length, so a straight up
 		// incremental index is not sufficient.
-		mapLines[lineAddr] = fmt.Sprintf("%s%%s", sInst)
+		lines = append(lines, disassemblyEntry{
+			line: fmt.Sprintf("%s%%s", sInst),
+			address: lineAddr,
+		})
 	}
-	return mapLines
+	return lines
 }
 
 func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 	m.lastAction = read
-	m.log.Debugf("Memory[%s] returned %s", display.HexAddress(address), display.HexData(m.memory[address]))
-	return m.memory[address], true
+	me := m.getEntry(address)
+	m.log.Debugf("Memory[%s] returned %s", display.HexAddress(address), display.HexData(me.data))
+	return me.data, true
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
-	m.memory[address] = data
-	m.lastAction = written
-	m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(m.memory[address]))
-	return true
+	me := m.getEntry(address)
+	if !me.opCode {
+		me.data = data
+		m.lastAction = written
+		m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(me.data))
+		return true
+	} else {
+		m.log.Errorf("Memory[%s] represents an opCode and cannot be changed", display.HexAddress(address))
+		return false
+	}
 }
-
+func (m *Memory) ToggleBreakPoint(address uint16) {
+	var me *memoryEntry
+	for me == nil || !me.opCode {
+		me = m.getEntry(address)
+		if me.void {
+			m.log.Warn("No valid opcode")
+			return
+		}
+		address--
+	}
+	if me.opCode {
+		me.breakpoint = !me.breakpoint
+		m.redraw(false)
+	} else {
+		m.log.Info("Selected value is data, not an opcode")
+	}
+}
+func (m *Memory) HasBreakPoint(address uint16) bool {
+	var me *memoryEntry
+	for me == nil || !me.opCode {
+		me = m.getEntry(address)
+		if me.void {
+			return false
+		}
+		address--
+	}
+	return me.breakpoint
+}
 func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	// Round down to nearest block
 	start := address - address % 256
@@ -196,17 +258,28 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	for i := 0; i < 16; i++ {
 		line = fmt.Sprintf("%s%s%s%s ", common.Yellow, display.HEX[start >> 12], display.HEX[start >> 8 & 15], display.HEX[start >> 4 & 15])
 		for j := 0; j < 16; j++ {
+			me := m.getEntry(start)
 			colour = normal
 			if address == start {
 				colour = m.lastAction
 			}
 			if colour == lastColour { colour = "" } else { lastColour = colour }
-			value := display.HexData(m.memory[start])
+			value := display.HexData(me.data)
 			if m.inputMode && m.cursor.X == j && m.cursor.Y == i {
 				lastColour = common.BrightRed
 				colour = common.BrightRed
 				value = (m.input + "__")[:2]
+			} else {
+				if me.breakpoint {
+					lastColour = lastColour + common.BGRed
+					value = common.BGRed + value + common.Reset
+				}
+				if me.opCode && !me.void {
+					lastColour = lastColour + common.Underline
+					value = common.Underline + value + common.Reset
+				}
 			}
+
 			line += fmt.Sprintf("%s%s ", colour, value)
 			if j == 7 {
 				line += " "
@@ -223,39 +296,38 @@ func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	m.lastAction = current
 	return lines
 }
-func (m *Memory) InstructionBlock(instrAddr, address uint16) (lines []string) {
+func (m *Memory) InstructionBlock(instrAddr, address uint16) []string {
 
-	totalLines := uint16(lineCount)
-	if totalLines > m.size {
-		totalLines = m.size
-	}
-	addrBefore := instrAddr
-	addrAfter  := instrAddr
+	me := m.getEntry(instrAddr)
+	center := int(me.disassembleIndex)
+	preIndex := center - lineCount / 2
+	postIndex := center + lineCount / 2
 
 	colorSetIndex := address - instrAddr
 	if colorSetIndex < 0 || colorSetIndex > 2 {
 		colorSetIndex = 0
 	}
-	if line, ok := m.disassembly[instrAddr]; ok {
-		lines = append(lines, fmt.Sprintf(line, colorSet[colorSetIndex]...))
 
-		for len(lines) < int(totalLines) {
-			addrBefore-- // wraps around to bottom (0xffff) of memory
-			if addrBefore < instrAddr {
-				if line, ok = m.disassembly[addrBefore]; ok {
-					lines = append([]string{fmt.Sprintf(line, colorSet[3]...)}, lines...)
-				}
+	var lines []string
+	for i := preIndex; i <= postIndex; i++ {
+		if i < 0 || i >= len(m.disassembly) {
+			lines = append(lines, "                        ")
+		} else {
+			de := m.disassembly[i]
+			line := de.line
+			le := m.getEntry(de.address)
+			if i != center {
+				line = fmt.Sprintf(line, colorSet[3]...)
+			} else {
+				line = fmt.Sprintf(line, colorSet[colorSetIndex]...)
 			}
-
-			addrAfter++ // wraps around to top (0) of memory
-			if addrAfter > instrAddr {
-				if line, ok = m.disassembly[addrAfter]; ok {
-					lines = append(lines, fmt.Sprintf(line, colorSet[3]...))
-				}
+			if le.breakpoint {
+				line = common.BGRed + line
 			}
+			lines = append(lines, line)
 		}
 	}
-	return
+	return lines
 }
 
 func (m *Memory) Up(n int) {
@@ -298,7 +370,9 @@ func (m *Memory) PositionCursor() {
 	m.terminal.At(m.cursor.X * 3 + m.xOffset[(m.cursor.X)/8] +len(m.input), m.cursor.Y + m.yOffset[(m.cursor.Y)/8])
 }
 func (m *Memory) CursorPosition() string {
-	return "     " + display.HexAddress(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16))
+	address := m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y * 16)
+	me := m.getEntry(address)
+	return display.HexAddress(address) + "->" + m.opCodes.Lookup(me.data).Name
 }
 func (m *Memory) KeyIntercept(input common.Input) bool {
 	if input.KeyCode != 0 && !m.inputMode {
@@ -324,13 +398,16 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 				if len(m.input) == 2 {
 					bs, _ := hex.DecodeString(m.input)
 					m.lastAddress = m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y*16)
-					m.lastInput = m.memory[m.lastAddress]
-					m.memory[m.lastAddress] = bs[0]
+					me := m.getEntry(m.lastAddress)
+					m.lastInput = me.data
+					me.data = bs[0]
 					m.inputMode = false
 					m.hasLastInput = true
 					m.disassembly = m.disassemble(m.size)
 				}
 				m.redraw(true)
+			} else if input.Ascii == 'b' {
+				m.ToggleBreakPoint(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y*16))
 			} else {
 				return false
 			}
@@ -343,7 +420,7 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 			}
 		case 26:
 			if m.hasLastInput {
-				m.memory[m.lastAddress] = m.lastInput
+				m.getEntry(m.lastAddress).data = m.lastInput
 				m.disassembly = m.disassemble(m.size)
 				m.hasLastInput = false
 				m.redraw(false)

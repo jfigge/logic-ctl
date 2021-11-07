@@ -231,7 +231,7 @@ func (d *Driver) SetAddress(address uint16) {
 		d.log.Debugf("Address set to %s", display.HexAddress(d.address))
 	}
 }
-func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
+func (d *Driver) setLine(step uint8, clock uint8, bit uint64, command uint8) {
 
 	flags := d.flags.DevFlags()
 	if !d.flags.Ignore {
@@ -239,14 +239,14 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 	}
 
 	mask := uint64(0)
-	if value != 99 {
+	if command != 99 {
 		if str, ok := d.opCode.ValidateLine(step, clock, bit); !ok {
 			d.log.Warn(str)
 			return
 		}
 
 		mask = uint64(1 << bit)
-		switch value {
+		switch command {
 		case 0:
 			d.opCode.Lines[flags][step][clock] = d.opCode.Lines[flags][step][clock] &^ mask
 		case 1:
@@ -261,7 +261,7 @@ func (d *Driver) setLine(step uint8, clock uint8, bit uint64, value uint8) {
 	}
 
 	if step == d.step.CurrentStep() && clock == d.clock.CurrentState() && d.connected {
-		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()])
+		d.serial.SetLines(d.opCode.Lines[flags][step][d.clock.CurrentState()], d.memory.HasBreakPoint(d.instrAddr))
 	}
 	d.redraw(true)
 }
@@ -453,6 +453,8 @@ func (d *Driver) Process(input common.Input) bool {
 			return true
 		case 'D':
 			d.log.SetDebug(false)
+		case 'b':
+			d.memory.ToggleBreakPoint(d.instrAddr)
 		case 'd':
 			d.log.SetDebug(true)
 		case 'c', 'C':
@@ -558,7 +560,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 	}
 
 	if d.step.CurrentStep() > d.opCode.Steps {
-		d.log.Errorf("Invalid state. Step %d of %d", d.step.CurrentStep(), d.opCode.Steps)
+		d.log.Debugf("Invalid state. Step %d of %d", d.step.CurrentStep(), d.opCode.Steps)
 		return
 	}
 
@@ -567,7 +569,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		flags = d.flags.CurrentFlags()
 	}
 	lines := d.opCode.Lines[flags][d.step.CurrentStep()][d.clock.CurrentState()]
-	d.serial.SetLines(lines)
+	d.serial.SetLines(lines, d.memory.HasBreakPoint(d.instrAddr))
 
 	time.Sleep(50 * time.Millisecond)
 	if address, ok := d.serial.ReadAddress(); ok {
@@ -609,9 +611,7 @@ func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
 	}
-	if !d.opCode.Virtual {
-		d.instrAddr = d.address
-	}
+	d.instrAddr = d.address
 	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)
 }
 func (d *Driver) ResetChannels() {

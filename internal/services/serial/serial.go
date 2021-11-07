@@ -6,12 +6,26 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/config"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
+	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/status"
 	srl "go.bug.st/serial"
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	GetOpCode  = []byte {0x01, 'o'}
+	GetAddress = []byte {0x01, 'a'}
+	GetData    = []byte {0x01, 'd'}
+	GetStatus  = []byte {0x01, 's'}
+	SetLines   = []byte {0x07, 'L'}
+	SetData    = []byte {0x02, 'D'}
+	//GetClock   = []byte {0x01, 'c'}
+	//GetIRQ     = []byte {0x01, 'i'}
+	//GetNMI     = []byte {0x01, 'n'}
+	//GetReset   = []byte {0x01, 'r'}
 )
 
 type Serial struct {
@@ -102,7 +116,7 @@ func (s *Serial) ReadAddress() (uint16, bool) {
 	}
 
 	// Send command
-	if n, err := s.port.Write([]byte("a\n")); err != nil {
+	if n, err := s.port.Write(GetAddress); err != nil {
 		s.log.Errorf("Failed to send request for address: %v", err)
 		return 0, false
 	} else if n != 2 {
@@ -129,7 +143,7 @@ func (s *Serial) ReadOpCode() (uint8, bool) {
 	}
 
 	// Send command
-	if n, err := s.port.Write([]byte("o\n")); err != nil {
+	if n, err := s.port.Write(GetOpCode); err != nil {
 		s.log.Errorf("Failed to send request for OpCode: %v", err)
 		return 0, false
 	} else if n != 2 {
@@ -153,7 +167,7 @@ func (s *Serial) ReadData() (uint8, bool) {
 	}
 
 	// Send command
-	if n, err := s.port.Write([]byte("d\n")); err != nil {
+	if n, err := s.port.Write(GetData); err != nil {
 		s.log.Errorf("Failed to send request for data: %v", err)
 		return 0, false
 	} else if n != 2 {
@@ -178,7 +192,7 @@ func (s *Serial) ReadStatus() (uint8, bool) {
 	}
 
 	// Send command
-	if n, err := s.port.Write([]byte("s\n")); err != nil {
+	if n, err := s.port.Write(GetStatus); err != nil {
 		s.log.Errorf("Failed to send request for status: %v", err)
 		return 0, false
 	} else if n != 2 {
@@ -202,7 +216,8 @@ func (s *Serial) SetData(data uint8) bool {
 	}
 	// Send command
 	s.log.Debugf("Sending data: %s", display.HexData(data))
-	if n, err := s.port.Write([]byte{0x44,data,0x0A}); err != nil {
+	bs := append(SetData, data)
+	if n, err := s.port.Write(bs); err != nil {
 		s.log.Errorf("Failed to send request to set data: %v", err)
 		return false
 	} else if n != 3 {
@@ -214,14 +229,17 @@ func (s *Serial) SetData(data uint8) bool {
 	e := <-s.data
 	return e == 0
 }
-func (s *Serial) SetLines(data uint64) (uint8, bool) {
+func (s *Serial) SetLines(data uint64, breakpoint bool) (uint8, bool) {
 	if !s.connected {
 		return 0, false
 	}
 
+	if breakpoint {
+		data = data ^ instructionSet.CL_PAUS
+	}
 	// Send command
-	bs := []byte{'L', uint8(data >> 40), uint8(data >> 32), uint8(data >> 24), uint8(data >> 16), uint8(data >> 8), uint8(data), 0x0A}
-	s.log.Debugf("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
+	bs := append(SetLines, uint8(data >> 40), uint8(data >> 32), uint8(data >> 24), uint8(data >> 16), uint8(data >> 8), uint8(data))
+	s.log.Tracef("%c [%s %s %s %s %s %s] %s", bs[0], display.HexData(bs[1]), display.HexData(bs[2]), display.HexData(bs[3]), display.HexData(bs[4]), display.HexData(bs[5]), display.HexData(bs[6]), display.HexData(bs[7]) )
 	if n, err := s.port.Write(bs); err != nil {
 		s.log.Errorf("Failed to send request to set lines: %v", err)
 		return 0, false

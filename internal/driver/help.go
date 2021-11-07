@@ -65,11 +65,12 @@ func (h *HelpPage) Draw(t *display.Terminal, connected bool, initialize bool) {
 	t.PrintAtf(41,12, "%sB%s Bus editor%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(61,12, "%sF%s Flags editor%s", common.Yellow, common.White, common.Reset)
 	t.PrintAtf(81,12, "%ss%s Sync dev flags%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,13, "%sb%s Toggle breakpoint%s", common.Yellow, common.White, common.Reset)
 
-	t.PrintAtf( 1,14, "%s0%s Deactivate line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(21,14, "%s1%s Activate line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(41,14, "%sspace%s Toggle line%s", common.Yellow, common.White, common.Reset)
-	t.PrintAtf(61,14, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf( 1,15, "%s0%s Deactivate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(21,15, "%s1%s Activate line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(41,15, "%sspace%s Toggle line%s", common.Yellow, common.White, common.Reset)
+	t.PrintAtf(61,15, "%sdelete%s Reset line%s", common.Yellow, common.White, common.Reset)
 
 	t.PrintAtf(1, t.Rows(), "%sPress any key to exit%s", common.Yellow, common.Reset)
 }
