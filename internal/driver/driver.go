@@ -610,6 +610,9 @@ func (d *Driver) tickFunc(phaseChange bool) {
 func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
+		if d.opCode.Virtual {
+			d.log.Warnf("Invalid opcode at %s: %s", display.HexAddress(d.address), display.HexData(opCode))
+		}
 	}
 	d.instrAddr = d.address
 	d.log.Debugf("Loaded OpCode: %s", d.opCode.Name)

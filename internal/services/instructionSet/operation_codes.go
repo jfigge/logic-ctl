@@ -479,34 +479,34 @@ func defineOpCodes() map[uint8]*OpCode {
 		// LDA (Load Accumulator)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA9 : ldX(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false, N|Z), CL_SBLA),
-		0xA5 : ldX(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false, N|Z), CL_SBLA),
-		0xB5 : ldX(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false, N|Z), CL_SBLA),
-		0xAD : ldX(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false, N|Z), CL_SBLA),
-		0xBD : ldX(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true,  N|Z), CL_SBLA),
-		0xB9 : ldX(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true,  N|Z), CL_SBLA),
-		0xA1 : ldX(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false, N|Z), CL_SBLA),
-		0xB1 : ldX(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true,  N|Z), CL_SBLA),
+		0xA9 : ldX(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xA5 : ldX(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xB5 : ldX(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xAD : ldX(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xBD : ldX(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xB9 : ldX(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xA1 : ldX(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xB1 : ldX(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
 
 
 		// LDX (LoaD X register)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA2 : ldX(mop(IMM, "LDX", "#$44",    0xA2, 2, 2, false, N|Z), CL_SBLX),
-		0xA6 : ldX(mop(ZPG, "LDX", "$44",     0xA6, 2, 3, false, N|Z), CL_SBLX),
-		0xB6 : ldX(mop(ZPY, "LDX", "$44,Y",   0xB6, 2, 4, false, N|Z), CL_SBLX),
-		0xAE : ldX(mop(ABS, "LDX", "$4400",   0xAE, 3, 4, false, N|Z), CL_SBLX),
-		0xBE : ldX(mop(ABY, "LDX", "$4400,Y", 0xBE, 3, 4, true,  N|Z), CL_SBLX),
+		0xA2 : ldX(mop(IMM, "LDX", "#$44",    0xA2, 2, 2, false, 0 /*N|Z*/), CL_SBLX | CL_SBD1),
+		0xA6 : ldX(mop(ZPG, "LDX", "$44",     0xA6, 2, 3, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xB6 : ldX(mop(ZPY, "LDX", "$44,Y",   0xB6, 2, 4, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xAE : ldX(mop(ABS, "LDX", "$4400",   0xAE, 3, 4, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xBE : ldX(mop(ABY, "LDX", "$4400,Y", 0xBE, 3, 4, true,  0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
 
 
 		// LDY (LoaD Y register)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA0 : ldX(mop(IMM, "LDY", "#$44",    0xA0, 2, 2, false, N|Z), CL_SBLY),
-		0xA4 : ldX(mop(ZPG, "LDY", "$44",     0xA4, 2, 3, false, N|Z), CL_SBLY),
-		0xB4 : ldX(mop(ZPX, "LDY", "$44,X",   0xB4, 2, 4, false, N|Z), CL_SBLY),
-		0xAC : ldX(mop(ABS, "LDY", "$4400",   0xAC, 3, 4, false, N|Z), CL_SBLY),
-		0xBC : ldX(mop(ABX, "LDY", "$4400,X", 0xBC, 3, 4, true,  N|Z), CL_SBLY),
+		0xA0 : ldX(mop(IMM, "LDY", "#$44",    0xA0, 2, 2, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1),
+		0xA4 : ldX(mop(ZPG, "LDY", "$44",     0xA4, 2, 3, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xB4 : ldX(mop(ZPX, "LDY", "$44,X",   0xB4, 2, 4, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xAC : ldX(mop(ABS, "LDY", "$4400",   0xAC, 3, 4, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xBC : ldX(mop(ABX, "LDY", "$4400,X", 0xBC, 3, 4, true,  0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
 
 
 		// LSR (Logical Shift Right)
@@ -555,21 +555,21 @@ func defineOpCodes() map[uint8]*OpCode {
 		// ROL (ROtate Left)
 		// Affects Flags: N Z C
 		// ROL shifts all bits left one position. The Carry is shifted into bit 0 and the original bit 7 is shifted into the Carry.
-		0x2A : rotate(mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C)),
-		0x26 : rotate(mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C)),
-		0x36 : rotate(mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C)),
-		0x2E : rotate(mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C)),
-		0x3E : rotate(mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C)),
+		0x2A : rotate(mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C), 0),
+		0x26 : rotate(mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C), 0),
+		0x36 : rotate(mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C), 0),
+		0x2E : rotate(mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C), 0),
+		0x3E : rotate(mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C), 0),
 
 
 		// ROR (ROtate Right)
 		// Affects Flags: N Z C
 		// ROR shifts all bits right one position. The Carry is shifted into bit 7 and the original bit 0 is shifted into the Carry.
-		0x6A : rotate(mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C)),
-		0x66 : rotate(mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C)),
-		0x76 : rotate(mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C)),
-		0x6E : rotate(mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C)),
-		0x7E : rotate(mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C)),
+		0x6A : rotate(mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C), CL_AULR),
+		0x66 : rotate(mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C), CL_AULR),
+		0x76 : rotate(mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C), CL_AULR),
+		0x6E : rotate(mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C), CL_AULR),
+		0x7E : rotate(mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C), CL_AULR),
 
 
 		// RTI (ReTurn from Interrupt)
@@ -1045,6 +1045,10 @@ func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 	oc.Flags     = flags
 	oc.BranchBit = 0
 	oc.BranchSet = false
+
+	if oc.PageCross {
+		oc.Steps++
+	}
 	setDefaultLines(oc)
 	addressMode(oc)
 	return oc
@@ -1055,15 +1059,21 @@ func ldX(oc *OpCode, register uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case IMM:
-			oc.Lines[flags][0][PHI2] ^= CL_SBD1 | register
+			oc.Lines[flags][0][PHI2] ^= register | CL_FSIA
 
 		case ZPG:
 		case ZPX:
 		case ABS:
 			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
-			oc.Lines[flags][2][PHI2] ^= CL_SBD1 | register
-		case ABX:
-		case ABY:
+			oc.Lines[flags][2][PHI2] ^= register | CL_FSIA
+		case ABX, ABY:
+			if flags & C == C {
+				oc.Lines[flags][3][PHI2] ^= register | CL_FSIA | CL_AULR
+			} else {
+				oc.Lines[flags][2][PHI2] ^= register | CL_FSIA
+				oc.Lines[flags][3][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+				oc.Lines[flags][3][PHI2] ^= CL_CTMR | CL_PCIN
+			}
 		case IZX:
 		case IZY:
 
@@ -1117,10 +1127,10 @@ func alu(oc *OpCode, invert bool) *OpCode {
 	}
 	return oc
 }
-func rotate(oc *OpCode) *OpCode {
+func rotate(oc *OpCode, direction uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
-		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_AUS2 | CL_AULR | CL_SBLA | CL_SBD2 | CL_FSCA
+		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUS2 | direction | CL_SBLA | CL_SBD2 | CL_FSCA
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1172,9 +1182,21 @@ func addressMode(oc *OpCode) *OpCode {
 		case ABS:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB
 			oc.Lines[flags][1][PHI2] ^= CL_PCIN
 		case ABX:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_SBD0 | CL_SBD2 | CL_AULA | CL_SBD0 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN | CL_AULR
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_AULR
+
+			if flags & C == C {
+				// Page crossed - Increment ABH
+				oc.Lines[flags][2][PHI1] ^= CL_AULB | CL_AULA | CL_AUSA
+				oc.Lines[flags][2][PHI2] ^= CL_AULA | CL_AULR
+				oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_AHLD | CL_AULR | CL_SBD2
+			}
 		case ABY:
 		case IND:
 		case IZX:

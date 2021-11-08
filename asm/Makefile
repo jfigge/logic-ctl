@@ -1,4 +1,4 @@
-.phony: assemble test example jmp tax branch coundown clean output-test push-pull status ror
+.phony: assemble test example jmp tax branch coundown clean output-test push-pull status ror rol abx
 
 assemble:
 	./vasm -Fbin -dotdir -o rom.bin code.asm; hexdump -C rom.bin
@@ -6,8 +6,14 @@ assemble:
 status:
 	./vasm -Fbin -dotdir -o status.bin status.asm; hexdump -C status.bin
 
+rol:
+	./vasm -Fbin -dotdir -o rol.bin rol.asm; hexdump -C rol.bin
+
 ror:
 	./vasm -Fbin -dotdir -o ror.bin ror.asm; hexdump -C ror.bin
+
+abx:
+	./vasm -Fbin -dotdir -o abx.bin abx.asm; hexdump -C abx.bin
 
 test:
 	./vasm -Fbin -dotdir -o test.bin test.asm; hexdump -C test.bin
