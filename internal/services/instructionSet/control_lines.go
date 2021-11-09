@@ -66,7 +66,7 @@ const (
 	CL_AHD0 // Address high driver 1-bit
 	CL_CTMR // Timer reset
 
-	CL_CIOV = CL_AULA
+	CL_AUCI = CL_FMAN // Distinction for when using line as carry in vs setting manual line
 )
 
 type Ref struct{
@@ -111,7 +111,7 @@ var (
 		{"Clear Reset",""},
 		{"ALU Input B Load",""},
 		// EPROM 2b
-		{"ALU Input A Load","Carry-in override (0=off, 1=on)"},
+		{"ALU Input A Load",""},
 		{"Set clock manual step mode",""},
 		{"ALU Load Invert data bus",""},
 		{"ALU Load B Selector (0=DB, 1=ABL)",""},
@@ -134,7 +134,7 @@ var (
 		{"Flag select V-B (0=first, 1=second)",""},
 		{"Flag select C-B (0=first, 1=second)",""},
 		{"Flag select C-A (0=Reg/Manual, 1=CPU/Load)",""},
-		{"Manual setting line for flags",""},
+		{"Manual line for flags / Carry in",""},
 		{"Flag select NZI A (0=Reg/Reg(Manual-I), 1=CPU/Load)",""},
 		{"Enable carry-in for ALU",""},
 	}
@@ -142,7 +142,7 @@ var (
 	x = uint64(CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
 		CL_ALC0 | CL_ALC1 | CL_ALC2 | CL_SPLD | CL_ALLD | CL_AHLD | CL_AUS1 | CL_AULA | CL_AULB |
 		CL_AUS2 | CL_SBD2 | CL_SBD1 | CL_SBD0 | CL_SBLX | CL_SBLY | CL_SBLA)
-	Defaults = [2]uint64 {x, x ^ CL_CIOV}
+	Defaults = [2]uint64 {x, x}
 
 	OutputsDB  = map[uint64]Ref {
 		0:                           {"None (0)",0},
@@ -197,13 +197,6 @@ var (
 		CL_AUS1 | CL_AUS2 | CL_AUO1:                     {"OR", 4},
 		CL_AUS1 | CL_AUS2 | CL_AUO2:                     {"AND", 5},
 		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2:           {"XOR", 6},
-		//CL_AUIB:                                         {"Logical Shift", 7},
-		//CL_AUIB | CL_AUS1:                               {"Rotation Shift", 8},
-		//CL_AUIB | CL_AUS2:                               {"Arithmetic Shift", 9},
-		//CL_AUIB | CL_AUS1 | CL_AUS2:                     {"Subtract", 10},
-		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1:           {"OR", 11},
-		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO2:           {"AND", 12},
-		//CL_AUIB | CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2: {"XOR", 13},
 	}
 	AluDir  = map[uint64]Ref{
 		0 :                          {"Left",  0},
@@ -220,7 +213,6 @@ var (
 
 		CL_AUSB,
 		CL_AUSA,
-		//CL_AUIB |
 		CL_AUS1 | CL_AUS2 | CL_AUO1 | CL_AUO2,
 		CL_AULR,
 	}

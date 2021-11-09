@@ -12,7 +12,7 @@ loop:
   bne loop
   jmp reset
 
-  .org $805c
+  .org $80f9
 data:
   .byte $01
   .byte $02
