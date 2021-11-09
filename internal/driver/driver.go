@@ -91,7 +91,7 @@ func (d *Driver) Run() {
 	go d.output(d.wg)
 	go d.input(d.wg)
 
-	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x8000) {
+	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, 0x0200) {
 		d.log.Dump()
 		os.Exit(1)
 	}

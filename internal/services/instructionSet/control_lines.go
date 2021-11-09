@@ -12,14 +12,14 @@ const (
 	PHI2 = 1
 ) // Clock stages
 const (
-	CL_CENB = 1 << iota // Carry enable
-	CL_FSIA // Flag select NZI-A (0=Reg/Manual(i), 1=Reg/Bus)
-	CL_FMAN // Flag manual setting (0=Off, 1=On)
-	CL_FSCA // Flag select C-A (0=Reg/Manual, 1=CPU/Bus)
-	CL_FSCB // Flag select C-B (0=first, 1=second)
-	CL_FSVB // Flag select V-B (0=first, 1=second)
-	CL_FSIB // Flag select NZI-B (0=first, 1=second)
-	CL_FSVA // Flag select V-A (0=Reg/Manual, 1=CPU/Bus)
+	CL_ALUCE = 1 << iota // Carry enable
+	CL_FSIA              // Flag select NZI-A (0=Reg/Manual(i), 1=Reg/Bus)
+	CL_FMAN              // Flag manual setting (0=Off, 1=On)
+	CL_FSCA              // Flag select C-A (0=Reg/Manual, 1=CPU/Bus)
+	CL_FSCB              // Flag select C-B (0=first, 1=second)
+	CL_FSVB              // Flag select V-B (0=first, 1=second)
+	CL_FSIB              // Flag select NZI-B (0=first, 1=second)
+	CL_FSVA              // Flag select V-A (0=Reg/Manual, 1=CPU/Bus)
 
 	CL_SBD2 // Special Bus driver 4-bit
 	CL_SBD1 // Special Bus driver 2-bit

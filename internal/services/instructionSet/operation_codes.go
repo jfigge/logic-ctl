@@ -838,7 +838,7 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 		case 1:
 			// Crossed forward (zero -> ALU-A + carry)
 			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_DBD0 | CL_AULB | CL_AULA | CL_AUIB | CL_AULR | CL_SBD0
-			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AUCI | CL_AULR | CL_SBD2 | CL_CENB
+			oc.Lines[flags][2][PHI2] ^= CL_AHD1 | CL_PCLH | CL_AUCI | CL_AULR | CL_SBD2 | CL_ALUCE
 
 		case 8:
 			// Crossed backwards (-1 -> ALU-B
@@ -916,10 +916,10 @@ func reg(name string, opcode uint8) *OpCode {
 			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLY | CL_SBD2
 		case 0xE8: // INX
 			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD0 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLX | CL_SBD2 | CL_CENB
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLX | CL_SBD2 | CL_ALUCE
 		case 0xC8: // INY
 			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLY | CL_SBD2 | CL_CENB
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLY | CL_SBD2 | CL_ALUCE
 		case 0xAA: // TAX
 			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD1 | CL_SBD2
 			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_SBLX | CL_FSIA
@@ -1122,7 +1122,7 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 func alu(oc *OpCode, invert bool) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
-		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1156,9 +1156,9 @@ func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 func rts(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_AUSA
-		oc.Lines[flags][0][PHI2] ^= CL_AUCI | CL_CENB
+		oc.Lines[flags][0][PHI2] ^= CL_AUCI | CL_ALUCE
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD2
-		oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_PCLL | CL_AUCI | CL_CENB
+		oc.Lines[flags][1][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_PCLL | CL_AUCI | CL_ALUCE
 		oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_SPLD | CL_SBD2
 		oc.Lines[flags][2][PHI2] ^= CL_AHD0 | CL_PCLH
 		oc.Lines[flags][3][PHI1] ^= 0
@@ -1178,6 +1178,9 @@ func addressMode(oc *OpCode) *OpCode {
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		case ZPG:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_AHC0 | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 		case ZPX:
 		case ABS:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD

@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
@@ -8,6 +9,8 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/instructionSet"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
 	"io/ioutil"
+	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -46,6 +49,7 @@ type Memory struct {
 	opCodes        *instructionSet.OpCodes
 	log            *logging.Log
 	baseAddress    uint16
+	startAddress   uint16
 	displayAddress uint16
 	terminal       *display.Terminal
 	xOffset        []int
@@ -57,6 +61,7 @@ type Memory struct {
 	lastInput      byte
 	lastAddress    uint16
 	hasLastInput   bool
+	bpfilename     string
 }
 func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Terminal, redraw func(bool)) *Memory {
 	return &Memory{
@@ -72,9 +77,11 @@ func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Te
 	}
 }
 
-func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16) bool {
+func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16, startAddress uint16) bool {
+	m.startAddress = startAddress
 	m.baseAddress = baseAddress
 	m.filename = filename
+	m.bpfilename = m.makeBPFile()
 	if bs, err := ioutil.ReadFile(filename); err != nil {
 		m.log.Errorf("Failed to read ROM: %s", err)
 		return false
@@ -82,13 +89,16 @@ func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16) bo
 		for i := uint16(0); i < uint16(len(bs)); i++ {
 			m.memory[i+baseAddress] = &memoryEntry{data: bs[i]}
 		}
-		m.memory[0xfffc] = &memoryEntry{data: 0x00, opCode: false}
-		m.memory[0xfffd] = &memoryEntry{data: 0x80, opCode: false}
-		m.disassembly = m.disassemble(uint16(len(bs)))
+		m.memory[0xfffc] = &memoryEntry{data: uint8(m.startAddress & 0x00ff), opCode: false}
+		m.memory[0xfffd] = &memoryEntry{data: uint8(m.startAddress >> 8), opCode: false}
+		m.size = uint16(len(bs)) - (m.startAddress - m.baseAddress)
+		m.disassembly = m.disassemble(m.startAddress)
 		m.log.Infof("%d byte(s) read.", len(bs))
+		m.loadBreakPoints()
 		return true
 	}
 }
+
 func (m* Memory) getEntry(address uint16) *memoryEntry {
 	if entry := m.memory[address]; entry != nil {
 		return entry
@@ -97,14 +107,13 @@ func (m* Memory) getEntry(address uint16) *memoryEntry {
 		return m.memory[address]
 	}
 }
-func (m *Memory) disassemble(size uint16) []disassemblyEntry {
-	m.size = size
-	addr := m.baseAddress
+func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
+	addr := startAddress
 	var lo, hi uint8 = 0, 0
 	var lines []disassemblyEntry
 	var lineAddr uint16 = 0
 
-	for addr <= addr + size {
+	for addr <= addr + m.size {
 		lineAddr = addr
 
 		// Prefix line with instruction address
@@ -403,11 +412,12 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 					me.data = bs[0]
 					m.inputMode = false
 					m.hasLastInput = true
-					m.disassembly = m.disassemble(m.size)
+					m.disassembly = m.disassemble(m.startAddress)
 				}
 				m.redraw(true)
 			} else if input.Ascii == 'b' {
 				m.ToggleBreakPoint(m.displayAddress + uint16(m.cursor.X) + uint16(m.cursor.Y*16))
+				m.saveBreakPoints()
 			} else {
 				return false
 			}
@@ -421,7 +431,7 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 		case 26:
 			if m.hasLastInput {
 				m.getEntry(m.lastAddress).data = m.lastInput
-				m.disassembly = m.disassemble(m.size)
+				m.disassembly = m.disassemble(m.startAddress)
 				m.hasLastInput = false
 				m.redraw(false)
 			}
@@ -436,5 +446,38 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 	}
 	// Key processed
 	return true
-
+}
+func (m* Memory) makeBPFile() string {
+	dir, filename := path.Split(m.filename)
+	return path.Join(dir, fmt.Sprintf(".%s.bp", filename[:len(filename)-len(filepath.Ext(filename))]))
+}
+func (m *Memory) loadBreakPoints() {
+	if bs, err := ioutil.ReadFile(m.bpfilename); err == nil {
+		for i := uint16(0); i < uint16(len(bs)); i += 2 {
+			bp := binary.LittleEndian.Uint16(bs[i : i+2])
+			entry := m.getEntry(bp)
+			if entry.opCode {
+				entry.breakpoint = true
+			}
+		}
+	}
+}
+func (m *Memory) saveBreakPoints() {
+	bs := make([]byte, 0, len(m.disassembly) * 2)
+	for _, de := range m.disassembly {
+		me := m.getEntry(de.address)
+		if me.void {
+			break
+		} else  if me.breakpoint {
+			bs = bs[:len(bs) + 2]
+			binary.LittleEndian.PutUint16(bs[len(bs) - 2:], de.address)
+		}
+	}
+	if len(bs) > 0 {
+		if err := ioutil.WriteFile(m.bpfilename, bs, 0644); err != nil {
+			m.log.Warnf("Failed to write break point file: %v", err)
+		} else {
+			m.log.Info("Break point captured")
+		}
+	}
 }
