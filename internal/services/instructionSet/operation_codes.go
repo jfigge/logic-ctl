@@ -683,10 +683,6 @@ func setDefaultLines(oc *OpCode) {
 		for timing := uint8(0); timing < 8; timing++ {
 			oc.Lines[flags][timing][PHI1] = Defaults[PHI1]
 			oc.Lines[flags][timing][PHI2] = Defaults[PHI2]
-			if timing == oc.Steps - 2 && oc.Flags & uint8(N|Z) == uint8(N|Z) {
-				// Apply N and Z flags
-				oc.Lines[flags][timing][PHI2] ^= CL_FSIA
-			}
 			if timing >= oc.Steps - 1 {
 				// Add a clock reset to every PHI2 step on or after the last instruction
 				oc.Lines[flags][timing][PHI2] ^= CL_CTMR
@@ -695,9 +691,16 @@ func setDefaultLines(oc *OpCode) {
 	}
 }
 func loadNextInstruction(oc *OpCode, flags uint8 ) *OpCode {
+	return loadNextInstructionAt(oc, flags, oc.Steps - 1)
+}
+func loadNextInstructionAt(oc *OpCode, flags uint8, step uint8) *OpCode {
 	oc.usesLNI = true
-	oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_PCIN
+	oc.Lines[flags][step][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+	oc.Lines[flags][step][PHI2] ^= CL_PCIN
+
+	if step != oc.Steps - 1 {
+		oc.Lines[flags][step][PHI2] ^= CL_CTMR
+	}
 	return oc
 }
 func wordAddressMode(oc *OpCode, flags uint8) *OpCode {
@@ -1121,6 +1124,11 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 }
 func alu(oc *OpCode, invert bool) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
+		if flags & C == 0 && oc.PageCross {
+			oc.Lines[flags][3][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
+			loadNextInstructionAt(oc, flags, 3)
+		}
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
 		loadNextInstruction(oc, flags)
@@ -1181,26 +1189,56 @@ func addressMode(oc *OpCode) *OpCode {
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
 			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_AHC0 | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][2][PHI2] ^= 0
 		case ZPX:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD2
+			oc.Lines[flags][1][PHI2] ^= 0
+			oc.Lines[flags][2][PHI1] ^= CL_AHC1 | CL_AHC0 | CL_ALD0 | CL_ALD1 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][2][PHI2] ^= 0
 		case ABS:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_AULB | CL_AULA | CL_AUSA
 			oc.Lines[flags][1][PHI2] ^= CL_PCIN
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI2] ^= 0
+
 		case ABX:
-			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_SBD0 | CL_SBD2 | CL_AULA | CL_SBD0 | CL_SBD2
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_SBD0 | CL_SBD2 | CL_AULA
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN
-			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_AULB
 			oc.Lines[flags][1][PHI2] ^= CL_PCIN | CL_AULR
 			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_AULR
+			oc.Lines[flags][2][PHI2] ^= CL_AULR
+			oc.Lines[flags][3][PHI1] ^= CL_AULR
+			oc.Lines[flags][3][PHI2] ^= CL_AULR
+			oc.Lines[flags][4][PHI1] ^= CL_AULR
 
 			if flags & C == C {
 				// Page crossed - Increment ABH
 				oc.Lines[flags][2][PHI1] ^= CL_AULB | CL_AULA | CL_AUSA
-				oc.Lines[flags][2][PHI2] ^= CL_AUCI
-				oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_AHLD | CL_AULR | CL_SBD2
+				oc.Lines[flags][2][PHI2] ^= CL_FMAN
+				oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_AHLD | CL_SBD2
 			}
 		case ABY:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_SBD1 | CL_SBD2 | CL_AULA | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD | CL_AULB
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN | CL_AULR
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_AULR
+			oc.Lines[flags][2][PHI2] ^= CL_AULR
+			oc.Lines[flags][3][PHI1] ^= CL_AULR
+			oc.Lines[flags][3][PHI2] ^= CL_AULR
+			oc.Lines[flags][4][PHI1] ^= CL_AULR
+
+			if flags & C == C {
+				// Page crossed - Increment ABH
+				oc.Lines[flags][2][PHI1] ^= CL_AULB | CL_AULA | CL_AUSA
+				oc.Lines[flags][2][PHI2] ^= CL_FMAN
+				oc.Lines[flags][3][PHI1] ^= CL_AHD1 | CL_AHLD | CL_SBD2
+			}
 		case IND:
 		case IZX:
 		case IZY:
@@ -1238,9 +1276,6 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 				str := op.uint64ToBinary(op.Lines[flags][i][j], op.Presets[flags][i][j], Defaults[j], colour, j)
 				line := fmt.Sprintf("%s%s Φ%d%s %s %s%s%s", timing, clockColour, j+1, timeMarker, chevron, colour, str, common.Reset)
 				lines = append(lines, line)
-				//if op.Lines[flags][i][j] & CL_CTMR == CL_CTMR {
-				//	break truncateStep
-				//}
 			}
 		}
 		lines2 = op.DescribeLine(flags, editStep, editPhase, 8, " ", "", false)

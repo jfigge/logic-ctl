@@ -1,17 +1,19 @@
+  .org $0000
+
   .org $0200
   lda #$01
-  ldx #$0
-  adc $00,x
+  ldx #$0d
+  adc $02f0,x
   inx
-  adc $00,x
+  adc $02f0,x
   inx
-  adc $00,x
+  adc $02f0,x
   inx
-  adc $00,x
+  adc $02f0,x
   inx
-  adc $00,x
+  adc $02f0,x
 
-  .org 00
+  .org $02fd
   .byte $02
   .byte $fc
   .byte $00
