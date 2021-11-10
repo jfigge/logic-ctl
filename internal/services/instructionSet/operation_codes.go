@@ -1125,9 +1125,13 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 func alu(oc *OpCode, invert bool) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		if flags & C == 0 && oc.PageCross {
-			oc.Lines[flags][3][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
-			loadNextInstructionAt(oc, flags, 3)
+			noCaryStep := uint8(3)
+			if oc.AddrMode == IZY {
+				noCaryStep = 4
+			}
+			oc.Lines[flags][noCaryStep][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][noCaryStep][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
+			loadNextInstructionAt(oc, flags, noCaryStep)
 		}
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
@@ -1253,6 +1257,24 @@ func addressMode(oc *OpCode) *OpCode {
 			oc.Lines[flags][4][PHI2] ^= 0
 
 		case IZY:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_AHC0 | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_FMAN
+			oc.Lines[flags][2][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AULA | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][2][PHI2] ^= CL_AULR
+			oc.Lines[flags][3][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_AULR
+			oc.Lines[flags][3][PHI2] ^= CL_AULR
+			oc.Lines[flags][4][PHI1] ^= CL_AULR
+			oc.Lines[flags][4][PHI2] ^= CL_AULR
+			oc.Lines[flags][5][PHI1] ^= CL_AULR
+
+			if flags & C == C {
+				// Page crossed - Increment ABH
+				oc.Lines[flags][3][PHI1] ^= CL_AULB | CL_AULA | CL_AUSA
+				oc.Lines[flags][3][PHI2] ^= CL_FMAN
+				oc.Lines[flags][4][PHI1] ^= CL_AHD1 | CL_AHLD | CL_SBD2
+			}
 		}
 	}
 	return oc

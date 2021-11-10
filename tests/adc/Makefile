@@ -15,4 +15,4 @@ aby:
 izx:
 	../../asm/vasm -Fbin -dotdir -o izx.bin izx.asm; hexdump -C zpx.bin
 izy:
-	../../asm/vasm -Fbin -dotdir -o izy.bin izy.asm; hexdump -C zpy.bin
+	../../asm/vasm -Fbin -dotdir -o izy.bin izy.asm; hexdump -C izy.bin
