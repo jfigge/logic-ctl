@@ -7,3 +7,7 @@
   adc #$00
   adc #$1
   adc #$fe
+
+  ; overflow test
+  lda #$7f
+  adc #$02
