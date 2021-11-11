@@ -2,3 +2,4 @@ vendor/
 .idea/aws.xml
 internal/logic-ctl
 **/*.bp
+tests/*/*.bin

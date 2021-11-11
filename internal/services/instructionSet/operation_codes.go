@@ -1125,13 +1125,13 @@ func str(oc *OpCode, dbSource uint64) *OpCode {
 func alu(oc *OpCode, invert bool) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		if flags & C == 0 && oc.PageCross {
-			noCaryStep := uint8(3)
+			noCarryStep := uint8(3)
 			if oc.AddrMode == IZY {
-				noCaryStep = 4
+				noCarryStep = 4
 			}
-			oc.Lines[flags][noCaryStep][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][noCaryStep][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
-			loadNextInstructionAt(oc, flags, noCaryStep)
+			oc.Lines[flags][noCarryStep][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][noCarryStep][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
+			loadNextInstructionAt(oc, flags, noCarryStep)
 		}
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
@@ -1149,18 +1149,17 @@ func rotate(oc *OpCode, direction uint64) *OpCode {
 }
 func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		switch oc.AddrMode {
-		case IMM:
-			oc.Lines[flags][1][PHI1] ^= aluOp | CL_AULB | aluA
-			oc.Lines[flags][1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
-		case ZPG:
-		case ZPX:
-		case ABS:
-		case ABX:
-		case ABY:
-		case IZX:
-		case IZY:
+		if flags & C == 0 && oc.PageCross {
+			noCarryStep := uint8(3)
+			if oc.AddrMode == IZY {
+				noCarryStep = 4
+			}
+			oc.Lines[flags][noCarryStep][PHI1] ^= aluOp | CL_AULB | aluA
+			oc.Lines[flags][noCarryStep][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
+			loadNextInstructionAt(oc, flags, noCarryStep)
 		}
+		oc.Lines[flags][oc.Steps - 1][PHI1] ^= aluOp | CL_AULB | aluA
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
 		loadNextInstruction(oc, flags)
 	}
 	return oc
