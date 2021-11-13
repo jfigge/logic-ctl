@@ -479,34 +479,34 @@ func defineOpCodes() map[uint8]*OpCode {
 		// LDA (Load Accumulator)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA9 : ldX(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xA5 : ldX(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xB5 : ldX(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xAD : ldX(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xBD : ldX(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xB9 : ldX(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xA1 : ldX(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false, 0 /*N|Z*/), CL_SBLA | CL_SBD1),
-		0xB1 : ldX(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true,  0 /*N|Z*/), CL_SBLA | CL_SBD1),
+		0xA9 : ldX(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false, N|Z), CL_SBLA | CL_SBD1),
+		0xA5 : ldX(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false, N|Z), CL_SBLA | CL_SBD1),
+		0xB5 : ldX(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false, N|Z), CL_SBLA | CL_SBD1),
+		0xAD : ldX(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false, N|Z), CL_SBLA | CL_SBD1),
+		0xBD : ldX(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true,  N|Z), CL_SBLA | CL_SBD1),
+		0xB9 : ldX(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true,  N|Z), CL_SBLA | CL_SBD1),
+		0xA1 : ldX(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false, N|Z), CL_SBLA | CL_SBD1),
+		0xB1 : ldX(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true,  N|Z), CL_SBLA | CL_SBD1),
 
 
 		// LDX (LoaD X register)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA2 : ldX(mop(IMM, "LDX", "#$44",    0xA2, 2, 2, false, 0 /*N|Z*/), CL_SBLX | CL_SBD1),
-		0xA6 : ldX(mop(ZPG, "LDX", "$44",     0xA6, 2, 3, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
-		0xB6 : ldX(mop(ZPY, "LDX", "$44,Y",   0xB6, 2, 4, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
-		0xAE : ldX(mop(ABS, "LDX", "$4400",   0xAE, 3, 4, false, 0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
-		0xBE : ldX(mop(ABY, "LDX", "$4400,Y", 0xBE, 3, 4, true,  0 /*N|Z*/), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xA2 : ldX(mop(IMM, "LDX", "#$44",    0xA2, 2, 2, false, N|Z), CL_SBLX | CL_SBD1),
+		0xA6 : ldX(mop(ZPG, "LDX", "$44",     0xA6, 2, 3, false, N|Z), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xB6 : ldX(mop(ZPY, "LDX", "$44,Y",   0xB6, 2, 4, false, N|Z), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xAE : ldX(mop(ABS, "LDX", "$4400",   0xAE, 3, 4, false, N|Z), CL_SBLX | CL_SBD0 | CL_SBD2),
+		0xBE : ldX(mop(ABY, "LDX", "$4400,Y", 0xBE, 3, 4, true,  N|Z), CL_SBLX | CL_SBD0 | CL_SBD2),
 
 
 		// LDY (LoaD Y register)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0xA0 : ldX(mop(IMM, "LDY", "#$44",    0xA0, 2, 2, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1),
-		0xA4 : ldX(mop(ZPG, "LDY", "$44",     0xA4, 2, 3, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
-		0xB4 : ldX(mop(ZPX, "LDY", "$44,X",   0xB4, 2, 4, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
-		0xAC : ldX(mop(ABS, "LDY", "$4400",   0xAC, 3, 4, false, 0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
-		0xBC : ldX(mop(ABX, "LDY", "$4400,X", 0xBC, 3, 4, true,  0 /*N|Z*/), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xA0 : ldX(mop(IMM, "LDY", "#$44",    0xA0, 2, 2, false, N|Z), CL_SBLY | CL_SBD1),
+		0xA4 : ldX(mop(ZPG, "LDY", "$44",     0xA4, 2, 3, false, N|Z), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xB4 : ldX(mop(ZPX, "LDY", "$44,X",   0xB4, 2, 4, false, N|Z), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xAC : ldX(mop(ABS, "LDY", "$4400",   0xAC, 3, 4, false, N|Z), CL_SBLY | CL_SBD1 | CL_SBD2),
+		0xBC : ldX(mop(ABX, "LDY", "$4400,X", 0xBC, 3, 4, true,  N|Z), CL_SBLY | CL_SBD1 | CL_SBD2),
 
 
 		// LSR (Logical Shift Right)
@@ -1060,34 +1060,15 @@ func mop(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 // Extended opcode types
 func ldX(oc *OpCode, register uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		switch oc.AddrMode {
-		case IMM:
-			oc.Lines[flags][0][PHI2] ^= register | CL_FSIA
-
-		case ZPG:
-		case ZPX:
-		case ABS:
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
-			oc.Lines[flags][2][PHI2] ^= register | CL_FSIA
-		case ABX, ABY:
-			if flags & C == C {
-				oc.Lines[flags][3][PHI2] ^= register | CL_FSIA | CL_AULR
-			} else {
-				oc.Lines[flags][2][PHI2] ^= register | CL_FSIA
-				oc.Lines[flags][3][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-				oc.Lines[flags][3][PHI2] ^= CL_CTMR | CL_PCIN
+		if flags & C == 0 && oc.PageCross {
+			noCarryStep := uint8(3)
+			if oc.AddrMode == IZY {
+				noCarryStep = 4
 			}
-		case IZX:
-		case IZY:
-
-			//0xA9 : lda(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false)),
-			//0xA5 : lda(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false)),
-			//0xB5 : lda(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false)),
-			//0xAD : lda(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false)),
-			//0xBD : lda(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true)),
-			//0xB9 : lda(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true)),
-			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
-			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
+			oc.Lines[flags][noCarryStep - 1][PHI2] ^= register | CL_FSIA
+			loadNextInstructionAt(oc, flags, noCarryStep)
+		} else {
+			oc.Lines[flags][oc.Steps-2][PHI2] ^= register | CL_FSIA
 		}
 		loadNextInstruction(oc, flags)
 	}

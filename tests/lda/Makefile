@@ -5,7 +5,7 @@ all: zpg zpx abs abx aby izx izy
 	cp op*.xml ../../.idea/runConfigurations
 
 clean:
-	rm -rf ../../.idea/runConfigurations/op_adc*
+	rm -rf ../../.idea/runConfigurations/op_lda*
 	rm *.bin
 
 imm:

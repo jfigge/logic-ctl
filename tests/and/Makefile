@@ -1,6 +1,12 @@
 .phony: imm zpg zpx abs abx aby izx izy
 
 all: imm zpg zpx abs abx aby izx izy
+	rm -rf ../../.idea/runConfigurations/op*
+	cp op*.xml ../../.idea/runConfigurations
+
+clean:
+	rm -rf ../../.idea/runConfigurations/op_and*
+	rm *.bin
 
 imm:
 	../../asm/vasm -Fbin -dotdir -o imm.bin imm.asm; hexdump -C imm.bin

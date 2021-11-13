@@ -1,6 +1,12 @@
 .phony: acc zpg zpx abs abx
 
 all: acc zpg zpx abs abx
+	rm -rf ../../.idea/runConfigurations/op*
+	cp op*.xml ../../.idea/runConfigurations
+
+clean:
+	rm -rf ../../.idea/runConfigurations/op_asl
+	rm *.bin
 
 acc:
 	../../asm/vasm -Fbin -dotdir -o acc.bin acc.asm; hexdump -C acc.bin
