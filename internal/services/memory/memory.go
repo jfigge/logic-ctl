@@ -78,14 +78,12 @@ func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Te
 }
 
 func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16, startAddress uint16) bool {
-	fmt.Println("HERE")
 	m.startAddress = startAddress
 	m.baseAddress = baseAddress
 	m.filename = filename
 	m.bpfilename = m.makeBPFile()
 	if bs, err := ioutil.ReadFile(filename); err != nil {
 		m.log.Errorf("Failed to read ROM: %s", err)
-		fmt.Println("GONE")
 		return false
 	} else {
 		for i := uint16(0); i < uint16(len(bs)); i++ {
@@ -97,7 +95,6 @@ func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16, st
 		m.disassembly = m.disassemble(m.startAddress)
 		m.log.Infof("%d byte(s) read.", len(bs))
 		m.loadBreakPoints()
-		fmt.Println("GONE")
 		return true
 	}
 }
@@ -115,7 +112,7 @@ func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
 	var lo, hi uint8 = 0, 0
 	var lines []disassemblyEntry
 	var lineAddr uint16 = 0
-
+	breakCount := 3
 	for addr <= addr + m.size {
 		lineAddr = addr
 
@@ -124,9 +121,21 @@ func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
 
 		// Read instruction, and get its readable name
 		me := m.getEntry(addr)
+		opCode := m.opCodes.Lookup(me.data)
+		if opCode.Virtual {
+			m.log.Infof("Encountered an invalid opcode [%s] at address [%s]. Disassembly terminated", opCode.Name, display.HexAddress(addr))
+			return lines
+		} else if opCode.Name == "BRK" {
+			breakCount--
+			if breakCount == 0 {
+				m.log.Infof("Encountered 3 consecutive breaks at address [%s]. Disassembly terminated", display.HexAddress(addr - 2 ))
+				return lines[:len(lines) - 2]
+			}
+		} else {
+			breakCount = 3
+		}
 		me.opCode = true
 		me.disassembleIndex = uint16(len(lines))
-		opCode := m.opCodes.Lookup(me.data)
 		sInst = fmt.Sprintf("%s%%s%s%%s ", sInst, opCode.Name)
 		addr++
 

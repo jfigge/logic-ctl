@@ -285,24 +285,24 @@ func defineOpCodes() map[uint8]*OpCode {
 		// AND (bitwise AND with accumulator)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0x29 : logic(mop(IMM, "AND", "#$44",    0x29, 2, 2, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x25 : logic(mop(ZPG, "AND", "$44",     0x25, 2, 3, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x35 : logic(mop(ZPX, "AND", "$44,X",   0x35, 2, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x2D : logic(mop(ABS, "AND", "$4400",   0x2D, 3, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x3D : logic(mop(ABX, "AND", "$4400,X", 0x3D, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x39 : logic(mop(ABY, "AND", "$4400,Y", 0x39, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x21 : logic(mop(IZX, "AND", "($44,X)", 0x21, 2, 6, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x31 : logic(mop(IZY, "AND", "($44),Y", 0x31, 2, 5, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x29 : bitOp(mop(IMM, "AND", "#$44",    0x29, 2, 2, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x25 : bitOp(mop(ZPG, "AND", "$44",     0x25, 2, 3, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x35 : bitOp(mop(ZPX, "AND", "$44,X",   0x35, 2, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x2D : bitOp(mop(ABS, "AND", "$4400",   0x2D, 3, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x3D : bitOp(mop(ABX, "AND", "$4400,X", 0x3D, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x39 : bitOp(mop(ABY, "AND", "$4400,Y", 0x39, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x21 : bitOp(mop(IZX, "AND", "($44,X)", 0x21, 2, 6, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x31 : bitOp(mop(IZY, "AND", "($44),Y", 0x31, 2, 5, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
 
 
-		// ASL (Arithmetic Shift Left)
+		// ASL (Arithmetic Shift Left)  (Behaves like a logical shift left - Hard implementation is more like ASR)
 		// Affects Flags: N Z C
 		// ASL shifts all bits left one position. 0 is shifted into bit 0 and the original bit 7 is shifted into the Carry.
-		0x0A : mop(ACC, "ASL", "A",       0x0A,  1,   2, false, N|Z|C),
-		0x06 : mop(ZPG, "ASL", "$44",     0x06,  2,   5, false, N|Z|C),
-		0x16 : mop(ZPX, "ASL", "$44,X",   0x16,  2,   6, false, N|Z|C),
-		0x0E : mop(ABS, "ASL", "$4400",   0x0E,  3,   6, false, N|Z|C),
-		0x1E : mop(ABX, "ASL", "$4400,X", 0x1E,  3,   7, false, N|Z|C),
+		0x0A : shift(mop(ACC, "ASL", "A",       0x0A,  1,   2, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x06 : shift(mop(ZPG, "ASL", "$44",     0x06,  2,   5, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x16 : shift(mop(ZPX, "ASL", "$44,X",   0x16,  2,   6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x0E : shift(mop(ABS, "ASL", "$4400",   0x0E,  3,   6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x1E : shift(mop(ABX, "ASL", "$4400,X", 0x1E,  3,   7, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
 
 
 		// BIT (test BITs)
@@ -513,11 +513,11 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N Z C
 		// LSR shifts all bits right one position. 0 is shifted into bit 7 and the original bit 0 is shifted into the
 		// Carry.
-		0x4A : mop(ACC, "LSR", "A",       0x4A, 1, 2, false, N|Z|C),
-		0x46 : mop(ZPG, "LSR", "$44",     0x46, 2, 5, false, N|Z|C),
-		0x56 : mop(ZPX, "LSR", "$44,X",   0x56, 2, 6, false, N|Z|C),
-		0x4E : mop(ABS, "LSR", "$4400",   0x4E, 3, 6, false, N|Z|C),
-		0x5E : mop(ABX, "LSR", "$4400,X", 0x5E, 3, 7, false, N|Z|C),
+		0x4A : shift(mop(ACC, "LSR", "A",       0x4A, 1, 2, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x46 : shift(mop(ZPG, "LSR", "$44",     0x46, 2, 5, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x56 : shift(mop(ZPX, "LSR", "$44,X",   0x56, 2, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x4E : shift(mop(ABS, "LSR", "$4400",   0x4E, 3, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x5E : shift(mop(ABX, "LSR", "$4400,X", 0x5E, 3, 7, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
 
 
 		// NOP (No OPeration)
@@ -555,21 +555,21 @@ func defineOpCodes() map[uint8]*OpCode {
 		// ROL (ROtate Left)
 		// Affects Flags: N Z C
 		// ROL shifts all bits left one position. The Carry is shifted into bit 0 and the original bit 7 is shifted into the Carry.
-		0x2A : rotate(mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C), 0),
-		0x26 : rotate(mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C), 0),
-		0x36 : rotate(mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C), 0),
-		0x2E : rotate(mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C), 0),
-		0x3E : rotate(mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C), 0),
+		0x2A : shift(mop(ACC, "ROL", "A",       0x2A, 1, 2, false, N|Z|C), CL_AUS2, 0),
+		0x26 : shift(mop(ZPG, "ROL", "$44",     0x26, 2, 5, false, N|Z|C), CL_AUS2, 0),
+		0x36 : shift(mop(ZPX, "ROL", "$44,X",   0x36, 2, 6, false, N|Z|C), CL_AUS2, 0),
+		0x2E : shift(mop(ABS, "ROL", "$4400",   0x2E, 3, 6, false, N|Z|C), CL_AUS2, 0),
+		0x3E : shift(mop(ABX, "ROL", "$4400,X", 0x3E, 3, 7, false, N|Z|C), CL_AUS2, 0),
 
 
 		// ROR (ROtate Right)
 		// Affects Flags: N Z C
 		// ROR shifts all bits right one position. The Carry is shifted into bit 7 and the original bit 0 is shifted into the Carry.
-		0x6A : rotate(mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C), CL_AULR),
-		0x66 : rotate(mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C), CL_AULR),
-		0x76 : rotate(mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C), CL_AULR),
-		0x6E : rotate(mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C), CL_AULR),
-		0x7E : rotate(mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C), CL_AULR),
+		0x6A : shift(mop(ACC, "ROR", "A",       0x6A, 1, 2, false, N|Z|C), CL_AUS2, CL_AULR),
+		0x66 : shift(mop(ZPG, "ROR", "$44",     0x66, 2, 5, false, N|Z|C), CL_AUS2, CL_AULR),
+		0x76 : shift(mop(ZPX, "ROR", "$44,X",   0x76, 2, 6, false, N|Z|C), CL_AUS2, CL_AULR),
+		0x6E : shift(mop(ABS, "ROR", "$4400",   0x6E, 3, 6, false, N|Z|C), CL_AUS2, CL_AULR),
+		0x7E : shift(mop(ABX, "ROR", "$4400,X", 0x7E, 3, 7, false, N|Z|C), CL_AUS2, CL_AULR),
 
 
 		// RTI (ReTurn from Interrupt)
@@ -1139,15 +1139,24 @@ func alu(oc *OpCode, invert bool) *OpCode {
 	}
 	return oc
 }
-func rotate(oc *OpCode, direction uint64) *OpCode {
+func shift(oc *OpCode, logic uint64, direction uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
-		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUS2 | direction | CL_SBLA | CL_SBD2 | CL_FSCA
+		switch oc.AddrMode {
+		case ACC:
+			oc.Lines[flags][0][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | logic | direction | CL_SBLA | CL_SBD2 | CL_FSCA | CL_FSIA
+
+		default:
+			oc.Lines[flags][oc.Steps - 3][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][oc.Steps - 3][PHI2] ^= CL_DBD0 | CL_DBD2 | logic | direction | CL_FSCA | CL_FSIA
+			oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
+			oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
+		}
 		loadNextInstruction(oc, flags)
 	}
 	return oc
 }
-func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
+func bitOp(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		if flags & C == 0 && oc.PageCross {
 			noCarryStep := uint8(3)
@@ -1184,7 +1193,9 @@ func addressMode(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		switch oc.AddrMode {
 		case ACC:
-			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_DBD2
+			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= 0
+			oc.Lines[flags][1][PHI1] ^= 0
 		case IMM, REL:
 			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
 			oc.Lines[flags][0][PHI2] ^= CL_PCIN

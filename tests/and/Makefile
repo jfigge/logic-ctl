@@ -1,5 +1,7 @@
 .phony: imm zpg zpx abs abx aby izx izy
 
+all: imm zpg zpx abs abx aby izx izy
+
 imm:
 	../../asm/vasm -Fbin -dotdir -o imm.bin imm.asm; hexdump -C imm.bin
 zpg:

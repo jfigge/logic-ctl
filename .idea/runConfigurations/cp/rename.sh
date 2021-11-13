@@ -8,5 +8,5 @@ mv $1_izx.xml $2_izx.xml
 mv $1_izy.xml $2_izy.xml 
 mv $1_zpg.xml $2_zpg.xml 
 mv $1_zpx.xml $2_zpx.xml 
-LC_ALL=C find . -type f -name '*.xml' -exec sed -i '' s/adc/add/ {} + 
+LC_ALL=C find . -type f -name '*.xml' -exec sed -i '' s/$1/$2/ {} + 
 mv *.xml ..

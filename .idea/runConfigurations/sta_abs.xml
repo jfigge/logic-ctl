@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="sta-abs" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="logic-ctl" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value="-c config.yaml -r tests/sta/abs.bin" />
+    <kind value="FILE" />
+    <package value="github.td.teradata.com/sandbox/logic-ctl" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/main.go" />
+    <method v="2" />
+  </configuration>
+</component>

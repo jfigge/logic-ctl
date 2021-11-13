@@ -77,7 +77,7 @@ func New() *Driver {
 	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.flags, d.step, d.connectionStatus, d.wg)
-	d.instrAddr    = 0
+	d.instrAddr    = 0x0200
 	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory, d.lines.BusController())
 	d.editor       = 0
 	d.dispChan     = make(chan bool)
@@ -91,7 +91,7 @@ func (d *Driver) Run() {
 	go d.output(d.wg)
 	go d.input(d.wg)
 
-	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, 0x0200) {
+	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, d.instrAddr) {
 		d.log.Dump()
 		os.Exit(1)
 	}

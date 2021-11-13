@@ -1,5 +1,7 @@
 .phony: acc zpg zpx abs abx
 
+all: acc zpg zpx abs abx
+
 acc:
 	../../asm/vasm -Fbin -dotdir -o acc.bin acc.asm; hexdump -C acc.bin
 zpg:
