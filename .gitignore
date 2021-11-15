@@ -1,5 +1,5 @@
 vendor/
-.idea/aws.xml
+.idea/
 internal/logic-ctl
 **/*.bp
 tests/*/*.bin

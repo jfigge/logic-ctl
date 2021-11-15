@@ -123,6 +123,7 @@ const (
 	activeLine  = common.BrightCyan
 	activeClock = common.BrightGreen
 	timeMarker  = common.BrightWhite
+	codeIndex   = common.Grey
 )
 
 const (
@@ -628,13 +629,13 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// STA (STore Accumulator)
 		// Affects Flags: none
-		0x85 : str(mop(ZPG, "STA", "$44",     0x85, 2, 3, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x95 : str(mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x8D : str(mop(ABS, "STA", "$4400",   0x8D, 3, 4, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x9D : str(mop(ABX, "STA", "$4400,X", 0x9D, 3, 5, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x99 : str(mop(ABY, "STA", "$4400,Y", 0x99, 3, 5, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x81 : str(mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
-		0x91 : str(mop(IZY, "STA", "($44),Y", 0x91, 2, 6, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x85 : stX(mop(ZPG, "STA", "$44",     0x85, 2, 3, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x95 : stX(mop(ZPX, "STA", "$44,X",   0x95, 2, 4, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x8D : stX(mop(ABS, "STA", "$4400",   0x8D, 3, 4, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x9D : stX(mop(ABX, "STA", "$4400,X", 0x9D, 3, 4, true,  0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x99 : stX(mop(ABY, "STA", "$4400,Y", 0x99, 3, 4, true,  0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x81 : stX(mop(IZX, "STA", "($44,X)", 0x81, 2, 6, false, 0), CL_DBD0 | CL_DBD1 | CL_DBD2),
+		0x91 : stX(mop(IZY, "STA", "($44),Y", 0x91, 2, 5, true,  0), CL_DBD0 | CL_DBD1 | CL_DBD2),
 
 
 		// Stack Instructions
@@ -651,16 +652,16 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// STX (STore X register)
 		// Affects Flags: none
-		0x86 : str(mop(ZPG, "STX", "$44",   0x86, 2, 3, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
-		0x96 : str(mop(ZPY, "STX", "$44,Y", 0x96, 2, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
-		0x8E : str(mop(ABS, "STX", "$4400", 0x8E, 3, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
+		0x86 : stX(mop(ZPG, "STX", "$44",   0x86, 2, 3, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
+		0x96 : stX(mop(ZPY, "STX", "$44,Y", 0x96, 2, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
+		0x8E : stX(mop(ABS, "STX", "$4400", 0x8E, 3, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_SBD2),
 
 
 		// STY (STore Y register)
 		// Affects Flags: none
-		0x84 : str(mop(ZPG, "STY", "$44",   0x84, 2, 3, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
-		0x94 : str(mop(ZPX, "STY", "$44,X", 0x94, 2, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
-		0x8C : str(mop(ABS, "STY", "$4400", 0x8C, 3, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
+		0x84 : stX(mop(ZPG, "STY", "$44",   0x84, 2, 3, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
+		0x94 : stX(mop(ZPX, "STY", "$44,X", 0x94, 2, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
+		0x8C : stX(mop(ABS, "STY", "$4400", 0x8C, 3, 4, false, 0), CL_DBD0 | CL_DBD2 | CL_SBD1 | CL_SBD2),
 	}
 
 	for i := 0; i < 256; i++ {
@@ -768,12 +769,13 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 
 		switch opcode {
 		case 0x00: // Break
+			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
 			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_DBRW | CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_ALC0
 
 		case 0x02: // Reset
 			oc.Lines[flags][0][PHI1] ^= CL_CRST
@@ -785,21 +787,23 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 		case 0x12: // NMI
 			oc.Lines[flags][0][PHI1] ^= CL_CRST
 			oc.Lines[flags][0][PHI2] ^= CL_FMAN
+			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
 			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_DBRW| CL_ALC2 | CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_ALC2 | CL_ALC0
 			oc.Lines[flags][5][PHI1] ^= CL_ALC2
 
 		case 0x22: // IRQ
+			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
 			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
 			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
-			oc.Lines[flags][4][PHI1] ^= CL_DBRW | CL_ALC0
+			oc.Lines[flags][4][PHI1] ^= CL_ALC0
 		}
 	}
 	return oc
@@ -959,9 +963,9 @@ func stk(name string, opcode uint8, timing uint8, push bool, pflags uint8, readL
 		if push {
 			oc.Lines[flags][0][PHI1] ^= CL_AULA
 			oc.Lines[flags][0][PHI2] ^= 0
-			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD2 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AUSB | readLines
+			oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD2 | CL_DBRW | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AUSB | readLines
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
-			oc.Lines[flags][2][PHI1] ^= CL_DBRW | CL_SPLD | CL_SBD2
+			oc.Lines[flags][2][PHI1] ^= CL_SPLD | CL_SBD2
 			oc.Lines[flags][2][PHI2] ^= 0
 		} else {
 			oc.Lines[flags][0][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_SBD0
@@ -994,11 +998,11 @@ func jsr() *OpCode {
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
 		oc.Lines[flags][1][PHI2] ^= 0
-		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_DBRW | CL_AULB | CL_AULA | CL_AUSB
 		oc.Lines[flags][2][PHI2] ^= CL_DBD1 | CL_DBRW
 		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_DBRW | CL_AULB | CL_AUSB
 		oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD1 | CL_DBRW
-		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_DBRW
+		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
 		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_ALD2 | CL_PCLL | CL_PCLH
 
 		oc.Lines[flags][5][PHI1] ^= CL_SPLD | CL_SBD2
@@ -1074,31 +1078,10 @@ func ldX(oc *OpCode, register uint64) *OpCode {
 	}
 	return oc
 }
-func str(oc *OpCode, dbSource uint64) *OpCode {
+func stX(oc *OpCode, register uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		switch oc.AddrMode {
-		case IMM:
-		case ZPG:
-		case ZPX:
-		case ABS:
-			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | dbSource | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
-			oc.Lines[flags][2][PHI2] ^= CL_DBRW
-			oc.Lines[flags][3][PHI1] ^= CL_DBRW
-			oc.Lines[flags][3][PHI2] ^= 0
-		case ABX:
-		case ABY:
-		case IZX:
-		case IZY:
-
-			//0xA9 : lda(mop(IMM, "LDA", "#$44",    0xA9, 2, 2, false)),
-			//0xA5 : lda(mop(ZPG, "LDA", "$44",     0xA5, 2, 3, false)),
-			//0xB5 : lda(mop(ZPX, "LDA", "$44,X",   0xB5, 2, 4, false)),
-			//0xAD : lda(mop(ABS, "LDA", "$4400",   0xAD, 3, 4, false)),
-			//0xBD : lda(mop(ABX, "LDA", "$4400,X", 0xBD, 3, 4, true)),
-			//0xB9 : lda(mop(ABY, "LDA", "$4400,Y", 0xB9, 3, 4, true)),
-			//0xA1 : lda(mop(IZX, "LDA", "($44,X)", 0xA1, 2, 6, false)),
-			//0xB1 : lda(mop(IZY, "LDA", "($44),Y", 0xB1, 2, 5, true)),
-		}
+		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBRW | register
+		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBRW
 		loadNextInstruction(oc, flags)
 	}
 	return oc
@@ -1295,6 +1278,8 @@ func (op *OpCode) Block(flags uint8, step uint8, clock uint8, editStep uint8, ed
 					timing = fmt.Sprintf("%sT%d", timingColor, i + 2)
 				} else if i == op.Steps - 1 {
 					timing = fmt.Sprintf("%sT1", timingColor)
+				} else {
+					timing = fmt.Sprintf("%s%d ", codeIndex, i)
 				}
 
 				if i == step {

@@ -1,7 +1,8 @@
   .org $0000
   .org $0200
-  ldy #$20
-  sta #$0200,y
-
-  .org $0020
-  .byte $18
+  lda #$10
+  ldy #$02
+  sta $021e,y
+  lda #$14
+  ldy #$22
+  sta $01fe,y

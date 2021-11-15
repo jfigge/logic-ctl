@@ -1,4 +1,4 @@
-.phony: imm zpg zpx abs abx aby izx izy
+.phony: zpg zpx abs abx aby izx izy
 
 all: zpg zpx abs abx aby izx izy
 	rm -rf ../../.idea/runConfigurations/op*
@@ -8,8 +8,6 @@ clean:
 	rm -rf ../../.idea/runConfigurations/op_sta*
 	rm *.bin
 
-imm:
-	../../asm/vasm -Fbin -dotdir -o imm.bin imm.asm; hexdump -C imm.bin
 zpg:
 	../../asm/vasm -Fbin -dotdir -o zpg.bin zpg.asm; hexdump -C zpg.bin
 zpx:
@@ -21,6 +19,6 @@ abx:
 aby:
 	../../asm/vasm -Fbin -dotdir -o aby.bin aby.asm; hexdump -C aby.bin
 izx:
-	../../asm/vasm -Fbin -dotdir -o izx.bin izx.asm; hexdump -C zpx.bin
+	../../asm/vasm -Fbin -dotdir -o izx.bin izx.asm; hexdump -C izx.bin
 izy:
 	../../asm/vasm -Fbin -dotdir -o izy.bin izy.asm; hexdump -C izy.bin

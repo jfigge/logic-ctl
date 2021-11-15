@@ -1,10 +1,8 @@
   .org $0000
   .org $0200
-  ldx #$20
-  sta (#$00,x)
+  lda #$20
+  ldx #$02
+  sta ($2e,x)
 
-  .org $0020
-  .byte $0220
-
-  .org $0220
-  .byte $18
+  .org $0030
+  .word $0220
