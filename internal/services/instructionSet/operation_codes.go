@@ -273,15 +273,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N V Z C
 		// ADC results are dependant on the setting of the decimal flag. In decimal mode, addition is carried out on the assumption that the values involved are packed BCD (Binary Coded Decimal).
 		// There is no way to add without carry.
-		0x69 : alu(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C), false),
-		0x65 : alu(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C), false),
-		0x75 : alu(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C), false),
-		0x6D : alu(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C), false),
-		0x7D : alu(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C), false),
-		0x79 : alu(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C), false),
-		0x61 : alu(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C), false),
-		0x71 : alu(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C), false),
-
+		0x69: alu(mop(IMM, "ADC", "#$44", 0x69, 2, 2, false, N|V|Z|C), false),
+		0x65: alu(mop(ZPG, "ADC", "$44", 0x65, 2, 3, false, N|V|Z|C), false),
+		0x75: alu(mop(ZPX, "ADC", "$44,X", 0x75, 2, 4, false, N|V|Z|C), false),
+		0x6D: alu(mop(ABS, "ADC", "$4400", 0x6D, 3, 4, false, N|V|Z|C), false),
+		0x7D: alu(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true, N|V|Z|C), false),
+		0x79: alu(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true, N|V|Z|C), false),
+		0x61: alu(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C), false),
+		0x71: alu(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true, N|V|Z|C), false),
 
 		// AND (bitwise AND with accumulator)
 		// Affects Flags: N Z
@@ -320,8 +319,8 @@ func defineOpCodes() map[uint8]*OpCode {
 		// STA ICCOM,X upon arrival here.
 		//
 		// Beware: a BIT instruction used in this way as a NOP does have effects: the flags may be modified, and the read of the absolute address, if it happens to access an I/O device, may cause an unwanted action.
-		0x24 : mop(ZPG, "BIT", "$44",   0x24, 2, 3, false, N|V|Z),
-		0x2C : mop(ABS, "BIT", "$4400", 0x2C, 3, 4, false, N|V|Z),
+		0x24 : bit(mop(ZPG, "BIT", "$44",   0x24, 2, 3, false, N|V|Z)),
+		0x2C : bit(mop(ABS, "BIT", "$4400", 0x2C, 3, 4, false, N|V|Z)),
 
 
 		// Branch Instructions
@@ -679,6 +678,7 @@ func defineOpCodes() map[uint8]*OpCode {
 
 	return ocs
 }
+
 func setDefaultLines(oc *OpCode) {
 	for flags := 0; flags < 16; flags++ {
 		for timing := uint8(0); timing < 8; timing++ {
@@ -1147,6 +1147,16 @@ func rts(oc *OpCode) *OpCode {
 		oc.Lines[flags][2][PHI2] ^= CL_AHD0 | CL_PCLH
 		oc.Lines[flags][3][PHI1] ^= 0
 		oc.Lines[flags][3][PHI2] ^= CL_PCIN
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func bit(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_SBD0 | CL_SBD1 | CL_SBD2
+		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_AULR | CL_FSIA
+		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULA | CL_SBD1
+		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
 		loadNextInstruction(oc, flags)
 	}
 	return oc

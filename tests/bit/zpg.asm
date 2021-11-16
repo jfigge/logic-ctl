@@ -1,0 +1,22 @@
+  .org $0000
+  .byte $00
+  .byte $40
+  .byte $80
+  .byte $c0
+
+  .org $0200
+  lda #$ff
+  bit $00
+  bit $01
+  bit $02
+  bit $03
+  lda #$80
+  bit $00
+  bit $01
+  bit $02
+  bit $03
+  lda #$03
+  bit $00
+  bit $01
+  bit $02
+  bit $03
