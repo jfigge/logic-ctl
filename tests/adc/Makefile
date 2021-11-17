@@ -1,6 +1,6 @@
 .phony: imm zpg zpx abs abx aby izx izy
 
-all: zpg zpx abs abx aby izx izy
+all: imm zpg zpx abs abx aby izx izy
 	rm -rf ../../.idea/runConfigurations/op*
 	cp op*.xml ../../.idea/runConfigurations
 

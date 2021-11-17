@@ -1112,7 +1112,7 @@ func shift(oc *OpCode, logic uint64, direction uint64) *OpCode {
 
 		default:
 			oc.Lines[flags][oc.Steps - 3][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
-			oc.Lines[flags][oc.Steps - 3][PHI2] ^= CL_DBD0 | CL_DBD2 | logic | direction | CL_FSCA | CL_FSIA
+			oc.Lines[flags][oc.Steps - 3][PHI2] ^= CL_DBD0 | CL_DBD2 | logic | direction | CL_SBD2 | CL_FSCA | CL_FSIA
 			oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
 			oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
 		}
@@ -1153,7 +1153,7 @@ func rts(oc *OpCode) *OpCode {
 }
 func bit(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_SBD0 | CL_SBD1 | CL_SBD2
+		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_AULR | CL_FSIA
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULA | CL_SBD1
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
