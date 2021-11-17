@@ -365,14 +365,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Compare sets flags as if a subtraction had been carried out. If the value in the accumulator is equal or
 		// greater than the compared value, the Carry will be set. The equal (Z) and negative (N) flags will be set
 		// based on equality or lack thereof and the sign (i.e. A>=$80) of the accumulator.
-		0xC9 : mop(IMM, "CMP", "#$44",    0xC9, 2, 2, false, N|Z|C),
-		0xC5 : mop(ZPG, "CMP", "$44",     0xC5, 2, 3, false, N|Z|C),
-		0xD5 : mop(ZPX, "CMP", "$44,X",   0xD5, 2, 4, false, N|Z|C),
-		0xCD : mop(ABS, "CMP", "$4400",   0xCD, 3, 4, false, N|Z|C),
-		0xDD : mop(ABX, "CMP", "$4400,X", 0xDD, 3, 4, true,  N|Z|C),
-		0xD9 : mop(ABY, "CMP", "$4400,Y", 0xD9, 3, 4, true,  N|Z|C),
-		0xC1 : mop(IZX, "CMP", "($44,X)", 0xC1, 2, 6, false, N|Z|C),
-		0xD1 : mop(IZY, "CMP", "($44),Y", 0xD1, 2, 5, true,  N|Z|C),
+		0xC9 : cmp(mop(IMM, "CMP", "#$44",    0xC9, 2, 2, false, N|Z|C)),
+		0xC5 : cmp(mop(ZPG, "CMP", "$44",     0xC5, 2, 3, false, N|Z|C)),
+		0xD5 : cmp(mop(ZPX, "CMP", "$44,X",   0xD5, 2, 4, false, N|Z|C)),
+		0xCD : cmp(mop(ABS, "CMP", "$4400",   0xCD, 3, 4, false, N|Z|C)),
+		0xDD : cmp(mop(ABX, "CMP", "$4400,X", 0xDD, 3, 4, true,  N|Z|C)),
+		0xD9 : cmp(mop(ABY, "CMP", "$4400,Y", 0xD9, 3, 4, true,  N|Z|C)),
+		0xC1 : cmp(mop(IZX, "CMP", "($44,X)", 0xC1, 2, 6, false, N|Z|C)),
+		0xD1 : cmp(mop(IZY, "CMP", "($44),Y", 0xD1, 2, 5, true,  N|Z|C)),
 
 
 		// CPX (ComPare X register)
@@ -1087,17 +1087,21 @@ func stX(oc *OpCode, register uint64) *OpCode {
 	return oc
 }
 func alu(oc *OpCode, invert bool) *OpCode {
+	cl_invert := uint64(0)
+	if invert {
+		cl_invert = CL_AUIB
+	}
 	for flags := uint8(0); flags < 16; flags++ {
 		if flags & C == 0 && oc.PageCross {
 			noCarryStep := uint8(3)
 			if oc.AddrMode == IZY {
 				noCarryStep = 4
 			}
-			oc.Lines[flags][noCarryStep][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+			oc.Lines[flags][noCarryStep][PHI1] ^= CL_AULB | cl_invert | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 			oc.Lines[flags][noCarryStep][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
 			loadNextInstructionAt(oc, flags, noCarryStep)
 		}
-		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULB | cl_invert | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSVA | CL_FSCA | CL_FSIA | CL_ALUCE
 		loadNextInstruction(oc, flags)
 	}
@@ -1159,6 +1163,16 @@ func bit(oc *OpCode) *OpCode {
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
 		loadNextInstruction(oc, flags)
 	}
+	return oc
+}
+func cmp(oc *OpCode) *OpCode {
+	//for flags := uint8(0); flags < 16; flags++ {
+	//	oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_SBD0 | CL_SBD1 | CL_SBD2
+	//	oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_AULR | CL_FSIA
+	//	oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULA | CL_SBD1
+	//	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
+	//	loadNextInstruction(oc, flags)
+	//}
 	return oc
 }
 
