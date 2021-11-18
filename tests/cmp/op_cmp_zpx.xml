@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="adc-zpg" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="cmp-zpx" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="logic-ctl" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-c config.yaml -r tests/adc/zpg.bin" />
+    <parameters value="-c config.yaml -r tests/cmp/zpx.bin" />
     <kind value="FILE" />
     <package value="github.td.teradata.com/sandbox/logic-ctl" />
     <directory value="$PROJECT_DIR$" />

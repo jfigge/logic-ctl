@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="adc-abs" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="cmp-izy" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="logic-ctl" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-c config.yaml -r tests/adc/abs.bin" />
+    <parameters value="-c config.yaml -r tests/cmp/izy.bin" />
     <kind value="FILE" />
     <package value="github.td.teradata.com/sandbox/logic-ctl" />
     <directory value="$PROJECT_DIR$" />

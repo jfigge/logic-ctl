@@ -1,29 +1,18 @@
   .org $0000
+  .word $0220
+  .word $0221
+  .word $0222
 
   .org $0200
-  lda #$01
+  lda #$10
+  ldx #$00
+  cmp ($00,x)
   ldx #$02
-  adc ($fa,x)
+  cmp ($00,x)
   ldx #$04
-  adc ($fa,x)
-  ldx #$06
-  adc ($fa,x)
-  ldx #$08
-  adc ($fa,x)
-  ldx #$0a
-  adc ($fa,x)
+  cmp ($00,x)
 
-  .org $00fc
-  .word $0230
-  .word $0231
-  .org $0000
-  .word $0232
-  .word $0233
-  .word $0234
-
-  .org $0230
-  .byte $02
-  .byte $fc
-  .byte $00
-  .byte $01
-  .byte $fe
+  .org $0220
+  .byte $11
+  .byte $10
+  .byte $08

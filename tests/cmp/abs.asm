@@ -1,16 +1,12 @@
   .org $0000
 
   .org $0200
-  lda #$01
-  adc $0220
-  adc $0221
-  adc $0222
-  adc $0223
-  adc $0224
+  lda #$10
+  cmp $0220
+  cmp $0221
+  cmp $0222
 
   .org $0220
-  .byte $02
-  .byte $fc
-  .byte $00
-  .byte $01
-  .byte $fe
+  .byte $11
+  .byte $10
+  .byte $08

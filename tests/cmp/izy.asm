@@ -1,24 +1,16 @@
   .org $0000
+  .word $02f0
 
   .org $0200
-  lda #$01
-  ldy #$01
-  adc ($10),y
+  lda #$10
+  ldy #$0e
+  cmp ($00),y
   iny
-  adc ($10),y
+  cmp ($00),y
   iny
-  adc ($10),y
-  iny
-  adc ($10),y
-  iny
-  adc ($10),y
+  cmp ($00),y
 
-  .org $0010
-  .word $02fc
-
-  .org $02fd
-  .byte $02
-  .byte $fc
-  .byte $00
-  .byte $01
-  .byte $fe
+  .org $02fe
+  .byte $11
+  .byte $10
+  .byte $08

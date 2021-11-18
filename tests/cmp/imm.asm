@@ -1,13 +1,7 @@
   .org $0000
 
   .org $0200
-  lda #$01
-  adc #$02
-  adc #$fc
-  adc #$00
-  adc #$1
-  adc #$fe
-
-  ; overflow test
-  lda #$7f
-  adc #$02
+  lda #$10
+  cmp #$11
+  cmp #$10
+  cmp #$08

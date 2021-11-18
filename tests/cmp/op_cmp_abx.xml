@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="adc-abx" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="cmp-abx" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="logic-ctl" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-c config.yaml -r tests/adc/abx.bin" />
+    <parameters value="-c config.yaml -r tests/cmp/abx.bin" />
     <kind value="FILE" />
     <package value="github.td.teradata.com/sandbox/logic-ctl" />
     <directory value="$PROJECT_DIR$" />

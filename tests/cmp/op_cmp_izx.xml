@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="adc-izx" type="GoApplicationRunConfiguration" factoryName="Go Application">
+  <configuration default="false" name="cmp-izx" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="logic-ctl" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-c config.yaml -r tests/adc/izx.bin" />
+    <parameters value="-c config.yaml -r tests/cmp/izx.bin" />
     <kind value="FILE" />
     <package value="github.td.teradata.com/sandbox/logic-ctl" />
     <directory value="$PROJECT_DIR$" />
