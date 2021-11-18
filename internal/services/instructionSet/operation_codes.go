@@ -393,10 +393,10 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// DEC (DECrement memory)
 		// Affects Flags: N Z
-		0xC6 : mop(ZPG, "DEC", "$44",     0xC6, 2, 5, false, N|Z),
-		0xD6 : mop(ZPX, "DEC", "$44,X",   0xD6, 2, 6, false, N|Z),
-		0xCE : mop(ABS, "DEC", "$4400",   0xCE, 3, 6, false, N|Z),
-		0xDE : mop(ABX, "DEC", "$4400,X", 0xDE, 3, 7, false, N|Z),
+		0xC6 : mem(mop(ZPG, "DEC", "$44",     0xC6, 2, 5, false, N|Z), 0),
+		0xD6 : mem(mop(ZPX, "DEC", "$44,X",   0xD6, 2, 6, false, N|Z), 0),
+		0xCE : mem(mop(ABS, "DEC", "$4400",   0xCE, 3, 6, false, N|Z), 0),
+		0xDE : mem(mop(ABX, "DEC", "$4400,X", 0xDE, 3, 6, true, N|Z), 0),
 
 		// EOR (bitwise Exclusive OR)
 		// Affects Flags: N Z
@@ -450,10 +450,10 @@ func defineOpCodes() map[uint8]*OpCode {
 
 		// INC (Increment memory)
 		// Affects Flags: N Z
-		0xE6 : mop(ZPG, "INC", "$44",     0xE6, 2, 5, false, N|Z),
-		0xF6 : mop(ZPX, "INC", "$44,X",   0xF6, 2, 6, false, N|Z),
-		0xEE : mop(ABS, "INC", "$4400",   0xEE, 3, 6, false, N|Z),
-		0xFE : mop(ABX, "INC", "$4400,X", 0xFE, 3, 7, false, N|Z),
+		0xE6 : mem(mop(ZPG, "INC", "$44",     0xE6, 2, 5, false, N|Z), CL_AHC1),
+		0xF6 : mem(mop(ZPX, "INC", "$44,X",   0xF6, 2, 6, false, N|Z), CL_AHC1),
+		0xEE : mem(mop(ABS, "INC", "$4400",   0xEE, 3, 6, false, N|Z), CL_AHC1),
+		0xFE : mem(mop(ABX, "INC", "$4400,X", 0xFE, 3, 7, false, N|Z), CL_AHC1),
 
 
 		// JMP (JuMP)
@@ -1157,6 +1157,16 @@ func bit(oc *OpCode) *OpCode {
 		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_AULR | CL_FSIA
 		oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULA | CL_SBD1
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func mem(oc *OpCode, direction uint64) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][oc.Steps - 3][PHI1] ^= CL_AULB | CL_AULA | CL_SBD0 | direction
+		oc.Lines[flags][oc.Steps - 3][PHI2] ^= 0
+		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_SBD2
+		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBRW | CL_FSIA
 		loadNextInstruction(oc, flags)
 	}
 	return oc
