@@ -273,14 +273,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N V Z C
 		// ADC results are dependant on the setting of the decimal flag. In decimal mode, addition is carried out on the assumption that the values involved are packed BCD (Binary Coded Decimal).
 		// There is no way to add without carry.
-		0x69: alu(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x65: alu(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x75: alu(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x6D: alu(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x7D: alu(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x79: alu(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x61: alu(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C), 0, CL_SBLA | CL_FSVA),
-		0x71: alu(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C), 0, CL_SBLA | CL_FSVA),
+		0x69: alu(mop(IMM, "ADC", "#$44",    0x69, 2, 2, false, N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x65: alu(mop(ZPG, "ADC", "$44",     0x65, 2, 3, false, N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x75: alu(mop(ZPX, "ADC", "$44,X",   0x75, 2, 4, false, N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x6D: alu(mop(ABS, "ADC", "$4400",   0x6D, 3, 4, false, N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x7D: alu(mop(ABX, "ADC", "$4400,X", 0x7D, 3, 4, true,  N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x79: alu(mop(ABY, "ADC", "$4400,Y", 0x79, 3, 4, true,  N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x61: alu(mop(IZX, "ADC", "($44,X)", 0x61, 2, 6, false, N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0x71: alu(mop(IZY, "ADC", "($44),Y", 0x71, 2, 5, true,  N|V|Z|C), CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
 
 		// AND (bitwise AND with accumulator)
 		// Affects Flags: N Z
@@ -365,30 +365,30 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Compare sets flags as if a subtraction had been carried out. If the value in the accumulator is equal or
 		// greater than the compared value, the Carry will be set. The equal (Z) and negative (N) flags will be set
 		// based on equality or lack thereof and the sign (i.e. A>=$80) of the accumulator.
-		0xC9 : alu(mop(IMM, "CMP", "#$44",    0xC9, 2, 2, false, N|Z|C), CL_AUIB, 0),
-		0xC5 : alu(mop(ZPG, "CMP", "$44",     0xC5, 2, 3, false, N|Z|C), CL_AUIB, 0),
-		0xD5 : alu(mop(ZPX, "CMP", "$44,X",   0xD5, 2, 4, false, N|Z|C), CL_AUIB, 0),
-		0xCD : alu(mop(ABS, "CMP", "$4400",   0xCD, 3, 4, false, N|Z|C), CL_AUIB, 0),
-		0xDD : alu(mop(ABX, "CMP", "$4400,X", 0xDD, 3, 4, true,  N|Z|C), CL_AUIB, 0),
-		0xD9 : alu(mop(ABY, "CMP", "$4400,Y", 0xD9, 3, 4, true,  N|Z|C), CL_AUIB, 0),
-		0xC1 : alu(mop(IZX, "CMP", "($44,X)", 0xC1, 2, 6, false, N|Z|C), CL_AUIB, 0),
-		0xD1 : alu(mop(IZY, "CMP", "($44),Y", 0xD1, 2, 5, true,  N|Z|C), CL_AUIB, 0),
+		0xC9 : alu(mop(IMM, "CMP", "#$44",    0xC9, 2, 2, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xC5 : alu(mop(ZPG, "CMP", "$44",     0xC5, 2, 3, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xD5 : alu(mop(ZPX, "CMP", "$44,X",   0xD5, 2, 4, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xCD : alu(mop(ABS, "CMP", "$4400",   0xCD, 3, 4, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xDD : alu(mop(ABX, "CMP", "$4400,X", 0xDD, 3, 4, true,  N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xD9 : alu(mop(ABY, "CMP", "$4400,Y", 0xD9, 3, 4, true,  N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xC1 : alu(mop(IZX, "CMP", "($44,X)", 0xC1, 2, 6, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
+		0xD1 : alu(mop(IZY, "CMP", "($44),Y", 0xD1, 2, 5, true,  N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, 0),
 
 
 		// CPX (ComPare X register)
 		// Affects Flags: N Z C
 		// Operation and flag results are identical to equivalent mode accumulator CMP ops.
-		0xE0 : mop(IMM, "CPX", "#$44",  0xE0, 2, 2, false, N|Z|C),
-		0xE4 : mop(ZPG, "CPX", "$44",   0xE4, 2, 3, false, N|Z|C),
-		0xEC : mop(ABS, "CPX", "$4400", 0xEC, 3, 4, false, N|Z|C),
+		0xE0 : alu(mop(IMM, "CPX", "#$44",  0xE0, 2, 2, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD2, 0),
+		0xE4 : alu(mop(ZPG, "CPX", "$44",   0xE4, 2, 3, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD2, 0),
+		0xEC : alu(mop(ABS, "CPX", "$4400", 0xEC, 3, 4, false, N|Z|C), CL_AUIB | CL_SBD0 | CL_SBD2, 0),
 
 
 		// CPY (ComPare Y register)
 		// Affects Flags: N Z C
 		// Operation and flag results are identical to equivalent mode accumulator CMP ops.
-		0xC0 : mop(IMM, "CPY", "#$44",  0xC0, 2, 2, false, N|Z|C),
-		0xC4 : mop(ZPG, "CPY", "$44",   0xC4, 2, 3, false, N|Z|C),
-		0xCC : mop(ABS, "CPY", "$4400", 0xCC, 3, 4, false, N|Z|C),
+		0xC0 : alu(mop(IMM, "CPY", "#$44",  0xC0, 2, 2, false, N|Z|C), CL_AUIB | CL_SBD1 | CL_SBD2, 0),
+		0xC4 : alu(mop(ZPG, "CPY", "$44",   0xC4, 2, 3, false, N|Z|C), CL_AUIB | CL_SBD1 | CL_SBD2, 0),
+		0xCC : alu(mop(ABS, "CPY", "$4400", 0xCC, 3, 4, false, N|Z|C), CL_AUIB | CL_SBD1 | CL_SBD2, 0),
 
 
 		// DEC (DECrement memory)
@@ -616,14 +616,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		//
 		// There is no way to subtract without the carry which works as an inverse borrow. i.e, to subtract you set the
 		// carry before the operation. If the carry is cleared by the operation, it indicates a borrow occurred.
-		0xE9 : alu(mop(IMM, "SBC", "#$44",    0xE9, 2, 2, false, N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xE5 : alu(mop(ZPG, "SBC", "$44",     0xE5, 2, 3, false, N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xF5 : alu(mop(ZPX, "SBC", "$44,X",   0xF5, 2, 4, false, N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xED : alu(mop(ABS, "SBC", "$4400",   0xED, 3, 4, false, N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xFD : alu(mop(ABX, "SBC", "$4400,X", 0xFD, 3, 4, true,  N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xF9 : alu(mop(ABY, "SBC", "$4400,Y", 0xF9, 3, 4, true,  N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xE1 : alu(mop(IZX, "SBC", "($44,X)", 0xE1, 2, 6, false, N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
-		0xF1 : alu(mop(IZY, "SBC", "($44),Y", 0xF1, 2, 5, true,  N|V|Z|C), CL_AUIB, CL_SBLA | CL_FSVA),
+		0xE9 : alu(mop(IMM, "SBC", "#$44",    0xE9, 2, 2, false, N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xE5 : alu(mop(ZPG, "SBC", "$44",     0xE5, 2, 3, false, N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xF5 : alu(mop(ZPX, "SBC", "$44,X",   0xF5, 2, 4, false, N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xED : alu(mop(ABS, "SBC", "$4400",   0xED, 3, 4, false, N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xFD : alu(mop(ABX, "SBC", "$4400,X", 0xFD, 3, 4, true,  N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xF9 : alu(mop(ABY, "SBC", "$4400,Y", 0xF9, 3, 4, true,  N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xE1 : alu(mop(IZX, "SBC", "($44,X)", 0xE1, 2, 6, false, N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
+		0xF1 : alu(mop(IZY, "SBC", "($44),Y", 0xF1, 2, 5, true,  N|V|Z|C), CL_AUIB | CL_SBD0 | CL_SBD1 | CL_SBD2, CL_SBLA | CL_FSVA),
 
 
 		// STA (STore Accumulator)
@@ -1086,7 +1086,7 @@ func stX(oc *OpCode, register uint64) *OpCode {
 	}
 	return oc
 }
-func alu(oc *OpCode, invert uint64, storeResults uint64) *OpCode {
+func alu(oc *OpCode, source uint64, storeResults uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		step := oc.Steps - 1
 		if flags & C == 0 && oc.PageCross {
@@ -1099,7 +1099,7 @@ func alu(oc *OpCode, invert uint64, storeResults uint64) *OpCode {
 			oc.Lines[flags][0][PHI1] ^= 0
 			oc.Lines[flags][0][PHI2] ^= CL_FSCB | CL_FMAN
 		}
-		oc.Lines[flags][step][PHI1] ^= CL_AULB | invert | CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2
+		oc.Lines[flags][step][PHI1] ^= CL_AULB | source | CL_AULA
 		oc.Lines[flags][step][PHI2] ^= CL_DBD0 | CL_DBD2 | storeResults | CL_SBD2 | CL_FSCA | CL_FSIA | CL_ALUCE
 		loadNextInstructionAt(oc, flags, step)
 	}
@@ -1159,16 +1159,6 @@ func bit(oc *OpCode) *OpCode {
 		oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
 		loadNextInstruction(oc, flags)
 	}
-	return oc
-}
-func cmp(oc *OpCode) *OpCode {
-	//for flags := uint8(0); flags < 16; flags++ {
-	//	oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_SBD0 | CL_SBD1 | CL_SBD2
-	//	oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_AULR | CL_FSIA
-	//	oc.Lines[flags][oc.Steps - 1][PHI1] ^= CL_AULA | CL_SBD1
-	//	oc.Lines[flags][oc.Steps - 1][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUO2 | CL_AULR | CL_SBD2 | CL_FSIA
-	//	loadNextInstruction(oc, flags)
-	//}
 	return oc
 }
 
