@@ -439,13 +439,13 @@ func defineOpCodes() map[uint8]*OpCode {
 		// the overflow flag is 0 (-127 + -1 = -128). The overflow flag is not affected by increments, decrements,
 		// shifts and logical operations i.e. only ADC, BIT, CLV, PLP, RTI and SBC affect it. There is no op code to
 		// set the overflow but a BIT test on an RTS instruction will do the trick.
-		0x18 : ups("CLC", 0x18, C, false), // CLear Carry
-		0xD8 : ups("CLD", 0xD8, D, false), // CLear Decimal
-		0x58 : ups("CLI", 0x58, I, false), // CLear Interrupt
-		0xB8 : ups("CLV", 0xB8, V, false), // CLear oVerflow
-		0x38 : ups("SEC", 0x38, C, true),  // SEt Carry
-		0xF8 : ups("SED", 0xF8, D, true),  // SEt Decimal
-		0x78 : ups("SEI", 0x78, I, true),  // SEt Interrupt
+		0x18 : flg("CLC", 0x18, C, false), // CLear Carry
+		0xD8 : flg("CLD", 0xD8, D, false), // CLear Decimal
+		0x58 : flg("CLI", 0x58, I, false), // CLear Interrupt
+		0xB8 : flg("CLV", 0xB8, V, false), // CLear oVerflow
+		0x38 : flg("SEC", 0x38, C, true),  // SEt Carry
+		0xF8 : flg("SED", 0xF8, D, true),  // SEt Decimal
+		0x78 : flg("SEI", 0x78, I, true),  // SEt Interrupt
 
 
 		// INC (Increment memory)
@@ -864,7 +864,7 @@ func brc(name string, opcode uint8, bit uint8, set uint8, value bool) *OpCode {
 	}
 	return oc
 }
-func ups(name string, opcode uint8, flag uint8, value bool) *OpCode {
+func flg(name string, opcode uint8, flag uint8, value bool) *OpCode {
 	// Flag (Processor Status) Instructions
 	oc := new(OpCode)
 	oc.AddrMode  = IMP
