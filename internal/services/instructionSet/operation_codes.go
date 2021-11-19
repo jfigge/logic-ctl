@@ -513,11 +513,11 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: N Z C
 		// LSR shifts all bits right one position. 0 is shifted into bit 7 and the original bit 0 is shifted into the
 		// Carry.
-		0x4A : shift(mop(ACC, "LSR", "A",       0x4A, 1, 2, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
-		0x46 : shift(mop(ZPG, "LSR", "$44",     0x46, 2, 5, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
-		0x56 : shift(mop(ZPX, "LSR", "$44,X",   0x56, 2, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
-		0x4E : shift(mop(ABS, "LSR", "$4400",   0x4E, 3, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
-		0x5E : shift(mop(ABX, "LSR", "$4400,X", 0x5E, 3, 7, false, N|Z|C), CL_AUS1 | CL_AUS2, 0),
+		0x4A : shift(mop(ACC, "LSR", "A",       0x4A, 1, 2, false, N|Z|C), CL_AUS1 | CL_AUS2, CL_AULR),
+		0x46 : shift(mop(ZPG, "LSR", "$44",     0x46, 2, 5, false, N|Z|C), CL_AUS1 | CL_AUS2, CL_AULR),
+		0x56 : shift(mop(ZPX, "LSR", "$44,X",   0x56, 2, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, CL_AULR),
+		0x4E : shift(mop(ABS, "LSR", "$4400",   0x4E, 3, 6, false, N|Z|C), CL_AUS1 | CL_AUS2, CL_AULR),
+		0x5E : shift(mop(ABX, "LSR", "$4400,X", 0x5E, 3, 7, false, N|Z|C), CL_AUS1 | CL_AUS2, CL_AULR),
 
 
 		// NOP (No OPeration)
