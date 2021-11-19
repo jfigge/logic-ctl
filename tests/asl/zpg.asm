@@ -8,6 +8,8 @@
   asl $00
   asl $00
   asl $00
+  asl $00
+  asl $00
   asl $01
   asl $01
   asl $01

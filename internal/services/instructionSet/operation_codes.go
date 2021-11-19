@@ -1069,7 +1069,7 @@ func ldX(oc *OpCode, register uint64) *OpCode {
 			if oc.AddrMode == IZY {
 				noCarryStep = 4
 			}
-			oc.Lines[flags][noCarryStep - 1][PHI2] ^= register | CL_SBD1 | CL_FSIA
+			oc.Lines[flags][noCarryStep - 1][PHI2] ^= register | CL_SBD1 | CL_FSIA | CL_AULR
 			loadNextInstructionAt(oc, flags, noCarryStep)
 		} else {
 			oc.Lines[flags][oc.Steps-2][PHI2] ^= register | CL_SBD1 | CL_FSIA
@@ -1094,6 +1094,7 @@ func alu(oc *OpCode, source uint64, storeResults uint64) *OpCode {
 			if oc.AddrMode == IZY {
 				step = 4
 			}
+			oc.Lines[flags][step][PHI2] ^= CL_AULR
 		}
 		if storeResults & CL_SBLA == 0 {
 			oc.Lines[flags][0][PHI1] ^= 0

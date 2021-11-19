@@ -5,13 +5,13 @@
   lda #$ff
   ldy #$0d
   sbc $02f0,y
-  iny
+  ldy #$0e
   sbc $02f0,y
-  iny
+  ldy #$0f
   sbc $02f0,y
-  iny
+  ldy #$10
   sbc $02f0,y
-  iny
+  ldy #$11
   sbc $02f0,y
 
   .org $02fd
