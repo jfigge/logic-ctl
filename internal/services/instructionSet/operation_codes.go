@@ -523,7 +523,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// NOP (No OPeration)
 		// Affects Flags: none
 		// NOP is used to reserve space for future modifications or effectively REM out existing code.
-		0xEA : mop(IMP, "NOP", "", 0xEA, 1, 2, false, 0),
+		0xEA : nop(mop(IMP, "NOP", "", 0xEA, 1, 2, false, 0)),
 
 
 		// ORA (bitwise OR with Accumulator)
@@ -1118,6 +1118,12 @@ func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 		oc.Lines[flags][step][PHI1] ^= aluOp | CL_AULB | aluA
 		oc.Lines[flags][step][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
 		loadNextInstructionAt(oc, flags, step)
+	}
+	return oc
+}
+func nop(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
+		loadNextInstruction(oc, flags)
 	}
 	return oc
 }
