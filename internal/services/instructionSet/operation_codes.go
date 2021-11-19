@@ -285,14 +285,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// AND (bitwise AND with accumulator)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0x29 : bitOp(mop(IMM, "AND", "#$44",    0x29, 2, 2, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x25 : bitOp(mop(ZPG, "AND", "$44",     0x25, 2, 3, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x35 : bitOp(mop(ZPX, "AND", "$44,X",   0x35, 2, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x2D : bitOp(mop(ABS, "AND", "$4400",   0x2D, 3, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x3D : bitOp(mop(ABX, "AND", "$4400,X", 0x3D, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x39 : bitOp(mop(ABY, "AND", "$4400,Y", 0x39, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x21 : bitOp(mop(IZX, "AND", "($44,X)", 0x21, 2, 6, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
-		0x31 : bitOp(mop(IZY, "AND", "($44),Y", 0x31, 2, 5, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x29 : logic(mop(IMM, "AND", "#$44",    0x29, 2, 2, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x25 : logic(mop(ZPG, "AND", "$44",     0x25, 2, 3, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x35 : logic(mop(ZPX, "AND", "$44,X",   0x35, 2, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x2D : logic(mop(ABS, "AND", "$4400",   0x2D, 3, 4, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x3D : logic(mop(ABX, "AND", "$4400,X", 0x3D, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x39 : logic(mop(ABY, "AND", "$4400,Y", 0x39, 3, 4, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x21 : logic(mop(IZX, "AND", "($44,X)", 0x21, 2, 6, false, N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x31 : logic(mop(IZY, "AND", "($44),Y", 0x31, 2, 5, true,  N|Z), CL_AUO2, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
 
 
 		// ASL (Arithmetic Shift Left)  (Behaves like a logical shift left - Hard implementation is more like ASR)
@@ -401,14 +401,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// EOR (bitwise Exclusive OR)
 		// Affects Flags: N Z
 		// add 1 cycle if page boundary crossed
-		0x49 : mop(IMM, "EOR", "#$44",    0x49, 2, 2, false, N|Z),
-		0x45 : mop(ZPG, "EOR", "$44",     0x45, 2, 3, false, N|Z),
-		0x55 : mop(ZPX, "EOR", "$44,X",   0x55, 2, 4, false, N|Z),
-		0x4D : mop(ABS, "EOR", "$4400",   0x4D, 3, 4, false, N|Z),
-		0x5D : mop(ABX, "EOR", "$4400,X", 0x5D, 3, 4, true,  N|Z),
-		0x59 : mop(ABY, "EOR", "$4400,Y", 0x59, 3, 4, true,  N|Z),
-		0x41 : mop(IZX, "EOR", "($44,X)", 0x41, 2, 6, false, N|Z),
-		0x51 : mop(IZY, "EOR", "($44),Y", 0x51, 2, 5, true,  N|Z),
+		0x49 : logic(mop(IMM, "EOR", "#$44",    0x49, 2, 2, false, N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x45 : logic(mop(ZPG, "EOR", "$44",     0x45, 2, 3, false, N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x55 : logic(mop(ZPX, "EOR", "$44,X",   0x55, 2, 4, false, N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x4D : logic(mop(ABS, "EOR", "$4400",   0x4D, 3, 4, false, N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x5D : logic(mop(ABX, "EOR", "$4400,X", 0x5D, 3, 4, true,  N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x59 : logic(mop(ABY, "EOR", "$4400,Y", 0x59, 3, 4, true,  N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x41 : logic(mop(IZX, "EOR", "($44,X)", 0x41, 2, 6, false, N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x51 : logic(mop(IZY, "EOR", "($44),Y", 0x51, 2, 5, true,  N|Z), CL_AUO2 | CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
 
 
 		// Flag (Processor Status) Instructions
@@ -1122,7 +1122,7 @@ func shift(oc *OpCode, logic uint64, direction uint64) *OpCode {
 	}
 	return oc
 }
-func bitOp(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
+func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
 		step := oc.Steps - 1
 		if flags & C == 0 && oc.PageCross {

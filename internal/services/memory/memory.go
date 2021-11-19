@@ -43,7 +43,7 @@ type memoryEntry struct {
 type Memory struct {
 	filename       string
 	size           uint16
-	memory         [65536]*memoryEntry
+	memory         []*memoryEntry
 	lastAction     string
 	disassembly    []disassemblyEntry
 	opCodes        *instructionSet.OpCodes
@@ -78,6 +78,7 @@ func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Te
 }
 
 func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16, startAddress uint16) bool {
+	m.memory = make([]*memoryEntry, 65536, 65536)
 	m.startAddress = startAddress
 	m.baseAddress = baseAddress
 	m.filename = filename

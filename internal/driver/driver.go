@@ -41,6 +41,7 @@ type Driver struct {
 	dispChan    chan bool
 	monitorChan chan bool
 	clockChan   chan bool
+	resetChan   chan bool
 	inputChan   chan common.Input
 	connected    bool
 	keyIntercept []common.Intercept
@@ -72,17 +73,17 @@ func New() *Driver {
 	d.clock        = status.NewClock(d.log, d.tick)
 	d.irq          = status.NewIrq(d.log, d.redraw)
 	d.nmi          = status.NewNmi(d.log, d.redraw)
-	d.reset        = status.NewReset(d.log, d.redraw)
+	d.reset        = status.NewReset(d.log, d.redraw, d.reload)
 	d.flags        = status.NewFlags(d.log, d.display, d.redraw)
 	d.memory       = memory.New(d.log, d.opCodes, d.display, d.redraw)
 	d.lines        = instructionSet.NewControlLines(d.log, d.display, d.redraw, d.setLine)
 	d.serial       = serial.New(d.log, d.clock, d.irq, d.nmi, d.reset, d.flags, d.step, d.connectionStatus, d.wg)
-	d.instrAddr    = 0x0200
 	d.keyIntercept = append(d.keyIntercept, d.lines, d.memory, d.lines.BusController())
 	d.editor       = 0
 	d.dispChan     = make(chan bool)
 	d.monitorChan  = make(chan bool)
 	d.clockChan    = make(chan bool)
+	d.resetChan    = make(chan bool)
 	d.inputChan    = make(chan common.Input)
 	return &d
 }
@@ -91,11 +92,7 @@ func (d *Driver) Run() {
 	go d.output(d.wg)
 	go d.input(d.wg)
 
-	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, d.instrAddr) {
-		d.log.Dump()
-		os.Exit(1)
-	}
-
+	d.resetChan <- true
 	d.dispChan <- true
 
 	for len(d.UIs) > 0 {
@@ -147,13 +144,19 @@ func (d *Driver) input(wg *sync.WaitGroup) {
 			d.redraw(true)
 
 		case input, ok = <-d.inputChan:
-
 			if len(d.UIs) > 0 && d.UIs[0].Process(input) {
 				d.UIs = d.UIs[1:]
 				d.redraw(true)
 			}
 		case phaseChange, ok = <- d.clockChan:
 			d.tickFunc(phaseChange)
+
+		case _, ok = <- d.resetChan:
+			d.instrAddr = 0x0200
+			if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, d.instrAddr) {
+				d.log.Dump()
+				os.Exit(1)
+			}
 		}
 	}
 	d.serial.Terminate()
@@ -294,6 +297,13 @@ func (d *Driver) tick(phaseChange bool) {
 	case d.clockChan <- phaseChange:
 	default:
 		d.log.Debug("Tick ignored. phase change already queued")
+	}
+}
+func (d *Driver) reload() {
+	select {
+	case d.resetChan <- true:
+	default:
+		d.log.Debug("Reset ignored. Reset already queued")
 	}
 }
 

@@ -14,11 +14,13 @@ const (
 type Reset struct {
 	state  uint8
 	log    *logging.Log
+	reload func()
 	redraw func(bool)
 }
-func NewReset(log *logging.Log, redraw func(bool)) *Reset {
+func NewReset(log *logging.Log, redraw func(bool), reload func()) *Reset {
 	return &Reset{
 		log:    log,
+		reload: reload,
 		redraw: redraw,
 	}
 }
@@ -29,6 +31,7 @@ func (r *Reset) ResetHigh() {
 }
 func (r *Reset) ResetLow() {
 	r.state = 0
+	r.reload()
 	r.redraw(false)
 }
 
