@@ -704,36 +704,6 @@ func loadNextInstructionAt(oc *OpCode, flags uint8, step uint8) *OpCode {
 	}
 	return oc
 }
-func wordAddressMode(oc *OpCode, flags uint8) *OpCode {
-	oc.usesAM = true
-	switch oc.AddrMode {
-	case IMM:
-	case ZPG:
-	case ZPX:
-	case ABS:
-		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-		oc.Lines[flags][0][PHI2] ^= CL_PCIN
-		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
-		oc.Lines[flags][1][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
-		// Ends with the ABH,ABL -> Input,ALU
-
-	case ABX:
-	case ABY:
-	case IND:
-		oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
-		oc.Lines[flags][0][PHI2] ^= CL_PCIN
-		oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
-		oc.Lines[flags][1][PHI2] ^= CL_PCIN
-		oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
-		oc.Lines[flags][2][PHI2] ^= CL_AUCI
-		oc.Lines[flags][3][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB
-		oc.Lines[flags][3][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
-		// Ends with the ABH,ABL -> Input,ALU
-	case IZX:
-	case IZY:
-	}
-	return oc
-}
 
 // Base opcode types
 func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8, timing uint8, pageCross bool, pflags uint8) *OpCode {
@@ -1028,11 +998,23 @@ func jmp(addrMode uint8, syntax string, opcode uint8, steps uint8) *OpCode {
 	setDefaultLines(oc)
 
 	for flags := uint8(0); flags < 16; flags++ {
-		wordAddressMode(oc, flags)
 		switch oc.AddrMode {
 		case ABS:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
 			oc.Lines[flags][1][PHI2] ^=  CL_PCLL | CL_PCLH
 		case IND:
+			oc.Lines[flags][0][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_AHLD | CL_ALLD
+			oc.Lines[flags][0][PHI2] ^= CL_PCIN
+			oc.Lines[flags][1][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULA | CL_AULB | CL_AUSA
+			oc.Lines[flags][1][PHI2] ^= CL_PCIN
+			oc.Lines[flags][2][PHI1] ^= CL_AHD0 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD
+			oc.Lines[flags][2][PHI2] ^= CL_AUCI
+			oc.Lines[flags][3][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB
+			oc.Lines[flags][3][PHI2] ^= CL_AHD0 | CL_ALD0 | CL_ALD1
+
 			oc.Lines[flags][3][PHI2] ^=  CL_PCLL | CL_PCLH
 		}
 		loadNextInstruction(oc, flags)
