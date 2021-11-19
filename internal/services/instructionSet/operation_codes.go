@@ -917,28 +917,28 @@ func reg(name string, opcode uint8) *OpCode {
 		switch opcode {
 		case 0xCA: // DEX
 			oc.Lines[flags][0][PHI1] ^= CL_AULB | CL_AULA | CL_AUSB | CL_SBD0 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLX | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLX | CL_SBD2 | CL_FSIA
 		case 0x88: // DEY
 			oc.Lines[flags][0][PHI1] ^= CL_AULB | CL_AULA | CL_AUSB | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLY | CL_SBD2
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLY | CL_SBD2 | CL_FSIA
 		case 0xE8: // INX
 			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD0 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLX | CL_SBD2 | CL_ALUCE
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLX | CL_SBD2 | CL_ALUCE | CL_FSIA
 		case 0xC8: // INY
 			oc.Lines[flags][0][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_AULB | CL_AULA | CL_AUSA | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLY | CL_SBD2 | CL_ALUCE
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_AUCI | CL_SBLY | CL_SBD2 | CL_ALUCE | CL_FSIA
 		case 0xAA: // TAX
-			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_SBLX | CL_FSIA
+			oc.Lines[flags][0][PHI1] ^= 0
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLX | CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_FSIA
 		case 0x8A: // TXA
-			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD2 | CL_SBLA
+			oc.Lines[flags][0][PHI1] ^= 0
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD0 | CL_SBD2 | CL_FSIA
 		case 0xA8: // TAY
-			oc.Lines[flags][0][PHI1] ^= CL_SBD0 | CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_SBLY
+			oc.Lines[flags][0][PHI1] ^= 0
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLY | CL_SBD0 | CL_SBD1 | CL_SBD2 | CL_FSIA
 		case 0x98: // TYA
-			oc.Lines[flags][0][PHI1] ^= CL_SBD1 | CL_SBD2
-			oc.Lines[flags][0][PHI2] ^= CL_SBD1 | CL_SBD2 | CL_SBLA
+			oc.Lines[flags][0][PHI1] ^= 0
+			oc.Lines[flags][0][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD1 | CL_SBD2 | CL_FSIA
 		}
 		loadNextInstruction(oc, flags)
 	}
