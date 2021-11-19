@@ -473,7 +473,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// Affects Flags: none
 		// JSR pushes the address-1 of the next operation on to the stack before transferring program control to the
 		// following address. Subroutines are normally terminated by a RTS op code.
-		0x20 : jsr(),
+		0x20 : jsr(ABS, "$5597", 0x20, 6),
 
 
 		// LDA (Load Accumulator)
@@ -949,14 +949,14 @@ func stk(name string, opcode uint8, timing uint8, push bool, pflags uint8, readL
 	}
 	return oc
 }
-func jsr() *OpCode {
+func jsr(addrMode uint8, syntax string, opcode uint8, steps uint8) *OpCode {
 	oc := new(OpCode)
-	oc.AddrMode  = ABS
+	oc.AddrMode  = addrMode
 	oc.Name      = "JSR"
-	oc.Syntax    = "$5597"
-	oc.OpCode    = 0x20
+	oc.Syntax    = syntax
+	oc.OpCode    = opcode
 	oc.Operands  = 2
-	oc.Steps     = 6
+	oc.Steps     = steps
 	oc.PageCross = false
 	oc.Virtual   = false
 	oc.BranchBit = 0
