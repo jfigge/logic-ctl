@@ -13,7 +13,7 @@
   eor ($00),y
 
   .org $02fe
-  .byte $55
+  .byte $f0
   .byte $50
   .byte $05
   .byte $ff

@@ -529,14 +529,14 @@ func defineOpCodes() map[uint8]*OpCode {
 		// ORA (bitwise OR with Accumulator)
 		// Affects Flags: N Z
 		// + add 1 cycle if page boundary crossed
-		0x09 : mop(IMM, "ORA", "#$44",    0x09, 2, 2, false, N|Z),
-		0x05 : mop(ZPG, "ORA", "$44",     0x05, 2, 3, false, N|Z),
-		0x15 : mop(ZPX, "ORA", "$44,X",   0x15, 2, 4, false, N|Z),
-		0x0D : mop(ABS, "ORA", "$4400",   0x0D, 3, 4, false, N|Z),
-		0x1D : mop(ABX, "ORA", "$4400,X", 0x1D, 3, 4, true,  N|Z),
-		0x19 : mop(ABY, "ORA", "$4400,Y", 0x19, 3, 4, true,  N|Z),
-		0x01 : mop(IZX, "ORA", "($44,X)", 0x01, 2, 6, false, N|Z),
-		0x11 : mop(IZY, "ORA", "($44),Y", 0x11, 2, 5, true,  N|Z),
+		0x09 : logic(mop(IMM, "ORA", "#$44",    0x09, 2, 2, false, N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x05 : logic(mop(ZPG, "ORA", "$44",     0x05, 2, 3, false, N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x15 : logic(mop(ZPX, "ORA", "$44,X",   0x15, 2, 4, false, N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x0D : logic(mop(ABS, "ORA", "$4400",   0x0D, 3, 4, false, N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x1D : logic(mop(ABX, "ORA", "$4400,X", 0x1D, 3, 4, true,  N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x19 : logic(mop(ABY, "ORA", "$4400,Y", 0x19, 3, 4, true,  N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x01 : logic(mop(IZX, "ORA", "($44,X)", 0x01, 2, 6, false, N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
+		0x11 : logic(mop(IZY, "ORA", "($44),Y", 0x11, 2, 5, true,  N|Z), CL_AUO1, CL_AULA | CL_SBD0 | CL_SBD1 | CL_SBD2),
 
 
 		// Register Instructions
@@ -1130,6 +1130,7 @@ func logic(oc *OpCode, aluOp uint64, aluA uint64) *OpCode {
 			if oc.AddrMode == IZY {
 				step = 4
 			}
+			oc.Lines[flags][step][PHI2] ^= CL_AULR
 		}
 		oc.Lines[flags][step][PHI1] ^= aluOp | CL_AULB | aluA
 		oc.Lines[flags][step][PHI2] ^= aluOp | CL_DBD0 | CL_DBD2 | CL_SBLA | CL_SBD2 | CL_FSIA
