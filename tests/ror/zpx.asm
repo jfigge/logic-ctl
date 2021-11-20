@@ -1,0 +1,14 @@
+  .org $0000
+  .org $0200
+  lda #$84
+  ldx #$10
+  sta $10
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x
+  ror $00,x

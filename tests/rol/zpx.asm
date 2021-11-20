@@ -1,0 +1,14 @@
+  .org $0000
+  .org $0200
+  lda #$84
+  ldx #$10
+  sta $10
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x
+  rol $00,x

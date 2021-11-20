@@ -51,7 +51,7 @@ const (
 	CL_PCLH // Load program counter from ABH
 	CL_PCLL // Load program counter from ABL
 	CL_PCIN // Increment program counter
-	CL_UNU1 // Unused #1
+	CL_FLG2 // Secondary flags registry
 	CL_DBRW // Data bus Read/Write (0=Write, 1=Read)
 	CL_ALD2 // Address low driver 4-bit
 	CL_ALD1 // Address low driver 2-bit
@@ -74,69 +74,69 @@ type Ref struct{
 	Index int
 }
 var (
-	mnemonics = [][]string{
-		/* EPROM 1a */ {"CTMR", ""}, {"AHD0", ""}, {"AHD1", ""}, {"AHC1", ""}, {"AHC0", ""},     {"DBD0", ""}, {"DBD1", ""}, {"DBD2", ""},
-		/* EPROM 1b */ {"ALD0", ""}, {"ALD1", ""}, {"ALD2", ""}, {"DBRW", ""}, {"UNU1", "CIOV"}, {"PCIN", ""}, {"PCLL", ""}, {"PCLH", ""},
-		/* EPROM 2a */ {"ALLD", ""}, {"AHLD", ""}, {"SPLD", ""}, {"ALC2", ""}, {"ALC1", ""},     {"ALC0", ""}, {"CRST", ""}, {"AULB", ""},
-		/* EPROM 2b */ {"AULA", ""}, {"PAUS", ""}, {"AUIB", ""}, {"AUSB", ""}, {"AUSA", ""},     {"AUO2", ""}, {"AUO1", ""}, {"AUS1", ""},
-		/* EPROM 3a */ {"AUS2", ""}, {"AULR", ""}, {"SBLA", ""}, {"SBLY", ""}, {"SBLX", ""},     {"SBD0", ""}, {"SBD1", ""}, {"SBD2", ""},
-		/* EPROM 3b */ {"FSVA", ""}, {"FSIB", ""}, {"FSVB", ""}, {"FSCB", ""}, {"FSCA", ""},     {"FMAN", ""}, {"FSIA", ""}, {"CENB", ""},
+	mnemonics = []string{
+		/* EPROM 1a */ "CTMR", "AHD0", "AHD1", "AHC1", "AHC0", "DBD0", "DBD1", "DBD2",
+		/* EPROM 1b */  "ALD0", "ALD1", "ALD2", "DBRW", "FLG2", "PCIN", "PCLL", "PCLH",
+		/* EPROM 2a */  "ALLD", "AHLD", "SPLD", "ALC2", "ALC1", "ALC0", "CRST", "AULB",
+		/* EPROM 2b */  "AULA", "PAUS", "AUIB", "AUSB", "AUSA", "AUO2", "AUO1", "AUS1",
+		/* EPROM 3a */  "AUS2", "AULR", "SBLA", "SBLY", "SBLX", "SBD0", "SBD1", "SBD2",
+		/* EPROM 3b */  "FSVA", "FSIB", "FSVB", "FSCB", "FSCA", "FMAN", "FSIA", "CENB",
 	}
-	lineDescriptions = [][]string{
+	lineDescriptions = []string{
 		// EPROM 1a
-		{"Timer reset",""},
-		{"Address High driver 1-bit",""},
-		{"Address High driver 2-bit",""},
-		{"Address Bus High Constant (1-7)",""},
-		{"Address Bus High Constant (0)",""},
-		{"Data Bus driver 1-bit",""},
-		{"Data Bus driver 2-bit",""},
-		{"Data Bus driver 4-bit",""},
+		"Timer reset",
+		"Address High driver 1-bit",
+		"Address High driver 2-bit",
+		"Address Bus High Constant (1-7)",
+		"Address Bus High Constant (0)",
+		"Data Bus driver 1-bit",
+		"Data Bus driver 2-bit",
+		"Data Bus driver 4-bit",
 		// EPROM 1b
-		{"Address Low driver 1-bit",""},
-		{"Address Low driver 2-bit",""},
-		{"Address Low driver 4-bit",""},
-		{"Data bus Read/Write (0=Write, 1=Read)",""},
-		{"Unused #1", ""},
-		{"Increment program counter",""},
-		{"Load program counter from ABL",""},
-		{"Load program counter from ABH",""},
+		"Address Low driver 1-bit",
+		"Address Low driver 2-bit",
+		"Address Low driver 4-bit",
+		"Data bus Read/Write (0=Write, 1=Read)",
+		"Secondary flags registry enabled",
+		"Increment program counter",
+		"Load program counter from ABL",
+		"Load program counter from ABH",
 		// EPROM 2a
-		{"Load address bus low from ABL",""},
-		{"Load address bus high from ABH",""},
-		{"Stack pointer load",""},
-		{"Address Low constant (2)",""},
-		{"Address Low constant (1)",""},
-		{"Address Low constant (0)",""},
-		{"Clear Reset",""},
-		{"ALU Input B Load",""},
+		"Load address bus low from ABL",
+		"Load address bus high from ABH",
+		"Stack pointer load",
+		"Address Low constant (2)",
+		"Address Low constant (1)",
+		"Address Low constant (0)",
+		"Clear Reset",
+		"ALU Input B Load",
 		// EPROM 2b
-		{"ALU Input A Load",""},
-		{"Set clock manual step mode",""},
-		{"ALU Load Invert data bus",""},
-		{"ALU Load B Selector (0=DB, 1=ABL)",""},
-		{"ALU Load A Selector (0=Special Bus, 1=zeros)",""},
-		{"ALU Op Selector #2 (0=first, 1=second)",""},
-		{"ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)",""},
-		{"ALU Shift #2 selector (0=first, 1=second)",""},
+		"ALU Input A Load",
+		"Set clock manual step mode",
+		"ALU Load Invert data bus",
+		"ALU Load B Selector (0=DB, 1=ABL)",
+		"ALU Load A Selector (0=Special Bus, 1=zeros)",
+		"ALU Op Selector #2 (0=first, 1=second)",
+		"ALU Op Selector #1 (0=Sum/And, 1=Or/Xor)",
+		"ALU Shift #2 selector (0=first, 1=second)",
 		// EPROM 3a
-		{"ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)",""},
-		{"Shift direction selector (0=Left, 1=Right)",""},
-		{"Special Bus load Accumulator",""},
-		{"Special Bus load Y",""},
-		{"Special Bus load X",""},
-		{"Special Bus driver 1-bit",""},
-		{"Special Bus driver 2-bit",""},
-		{"Special Bus driver 4-bit",""},
+		"ALU Shift #1 selector (0=Log/Rot 1=Arth/Sum)",
+		"Shift direction selector (0=Left, 1=Right)",
+		"Special Bus load Accumulator",
+		"Special Bus load Y",
+		"Special Bus load X",
+		"Special Bus driver 1-bit",
+		"Special Bus driver 2-bit",
+		"Special Bus driver 4-bit",
 		// EPROM 3b
-		{"Flag select V-A (0=Reg/Manual, 1=CPU/Load)",""},
-		{"Flag select NZI-B (0=first, 1=second)",""},
-		{"Flag select V-B (0=first, 1=second)",""},
-		{"Flag select C-B (0=first, 1=second)",""},
-		{"Flag select C-A (0=Reg/Manual, 1=CPU/Load)",""},
-		{"Manual line for flags / Carry in",""},
-		{"Flag select NZI A (0=Reg/Reg(Manual-I), 1=CPU/Load)",""},
-		{"Enable carry-in for ALU",""},
+		"Flag select V-A (0=Reg/Manual, 1=CPU/Load)",
+		"Flag select NZI-B (0=first, 1=second)",
+		"Flag select V-B (0=first, 1=second)",
+		"Flag select C-B (0=first, 1=second)",
+		"Flag select C-A (0=Reg/Manual, 1=CPU/Load)",
+		"Manual line for flags / Carry in",
+		"Flag select NZI A (0=Reg/Reg(Manual-I), 1=CPU/Load)",
+		"Enable carry-in for ALU",
 	}
 
 	x = uint64(CL_AHD0 | CL_AHC0 | CL_AHC1 | CL_DBD1 | CL_DBD2 | CL_PCLH | CL_PCLL | CL_DBRW | CL_PCIN | CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_CRST |
@@ -260,10 +260,6 @@ func NewControlLines(log *logging.Log, terminal *display.Terminal, redraw func(b
 			setLines: setLine,
 		},
 	}
-	for i := 0; i < 48; i++ {
-		if lineDescriptions[i][1] == "" { lineDescriptions[i][1] = lineDescriptions[i][0] }
-		if mnemonics[i][1] == "" { mnemonics[i][1] = mnemonics[i][0] }
-	}
 	return &l
 }
 func (l *ControlLines) BusController() *BusController {
@@ -366,7 +362,7 @@ func (l *ControlLines) KeyIntercept(input common.Input) bool {
 }
 
 func (l *ControlLines) LineNamesBlock(clock uint8) []string {
-	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.X - 1][clock], display.ClearEnd)}
+	return []string{ fmt.Sprintf("%s%s", lineDescriptions[l.cursor.X - 1], display.ClearEnd)}
 }
 func (l *ControlLines) SetSteps(steps uint8) {
 	l.steps = int(steps)
