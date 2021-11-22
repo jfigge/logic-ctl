@@ -48,7 +48,6 @@ type Memory struct {
 	disassembly    []disassemblyEntry
 	opCodes        *instructionSet.OpCodes
 	log            *logging.Log
-	baseAddress    uint16
 	startAddress   uint16
 	displayAddress uint16
 	terminal       *display.Terminal
@@ -77,22 +76,28 @@ func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Te
 	}
 }
 
-func (m *Memory) LoadRom(l *logging.Log, filename string, baseAddress uint16, startAddress uint16) bool {
+func (m *Memory) LoadRom(l *logging.Log, filename string, startAddress uint16) bool {
 	m.memory = make([]*memoryEntry, 65536, 65536)
+	m.memory[0xfffa] = &memoryEntry{data: 0xff, opCode: false}
+	m.memory[0xfffb] = &memoryEntry{data: 0xff, opCode: false}
+	m.memory[0xfffc] = &memoryEntry{data: uint8(m.startAddress & 0x00ff), opCode: false}
+	m.memory[0xfffd] = &memoryEntry{data: uint8(m.startAddress >> 8), opCode: false}
+	m.memory[0xfffe] = &memoryEntry{data: 0xff, opCode: false}
+	m.memory[0xffff] = &memoryEntry{data: 0xff, opCode: false}
 	m.startAddress = startAddress
-	m.baseAddress = baseAddress
 	m.filename = filename
 	m.bpfilename = m.makeBPFile()
 	if bs, err := ioutil.ReadFile(filename); err != nil {
 		m.log.Errorf("Failed to read ROM: %s", err)
 		return false
+	} else if len(bs) > len(m.memory) {
+		m.log.Errorf("Program too large for memory: %d", len(bs))
+		return false
 	} else {
-		for i := uint16(0); i < uint16(len(bs)); i++ {
-			m.memory[i+baseAddress] = &memoryEntry{data: bs[i]}
+		for i := 0; i < len(bs); i++ {
+			m.memory[uint16(i)] = &memoryEntry{data: bs[i]}
 		}
-		m.memory[0xfffc] = &memoryEntry{data: uint8(m.startAddress & 0x00ff), opCode: false}
-		m.memory[0xfffd] = &memoryEntry{data: uint8(m.startAddress >> 8), opCode: false}
-		m.size = uint16(len(bs)) - (m.startAddress - m.baseAddress)
+		m.size = uint16(len(bs)) - m.startAddress
 		m.disassembly = m.disassemble(m.startAddress)
 		m.log.Infof("%d byte(s) read.", len(bs))
 		m.loadBreakPoints()
@@ -113,7 +118,7 @@ func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
 	var lo, hi uint8 = 0, 0
 	var lines []disassemblyEntry
 	var lineAddr uint16 = 0
-	breakCount := 3
+	breakCount := 5
 	for addr <= addr + m.size {
 		lineAddr = addr
 
@@ -127,10 +132,10 @@ func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
 			m.log.Infof("Encountered an invalid opcode [%s] at address [%s]. Disassembly terminated", opCode.Name, display.HexAddress(addr))
 			return lines
 		} else if opCode.Name == "BRK" {
-			breakCount--
-			if breakCount == 0 {
-				m.log.Infof("Encountered 3 consecutive breaks at address [%s]. Disassembly terminated", display.HexAddress(addr - 2 ))
-				return lines[:len(lines) - 2]
+				breakCount--
+				if breakCount == 0 {
+				m.log.Infof("Encountered 5 consecutive breaks at address [%s]. Disassembly terminated", display.HexAddress(addr - 4 ))
+				return lines[:len(lines) - 4]
 			}
 		} else {
 			breakCount = 3

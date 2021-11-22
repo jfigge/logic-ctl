@@ -7,8 +7,9 @@ E  = %10000000
 RW = %01000000
 RS = %00100000
 
-  .org $8000
+  .org $0000
 
+  .org $0200
 reset:
   lda #%11111111  ; ports 0-7 output
   sta DDRB
@@ -79,6 +80,6 @@ print_char:
   sta PORTA
   rts
 
-  .org $fffc
-  .word reset
-  .word $0000
+;  .org $fffc
+;  .word reset
+;  .word $0000

@@ -19,35 +19,36 @@ import (
 )
 
 type Driver struct {
-	instrAddr   uint16
-	address     uint16
-	buses       [7]uint64
-	opCode      *instructionSet.OpCode
-	display     *display.Terminal
-	clock       *status.Clock
-	irq         *status.Irq
-	nmi         *status.Nmi
-	reset       *status.Reset
-	log         *logging.Log
-	serial      *serial.Serial
-	opCodes     *instructionSet.OpCodes
-	lines       *instructionSet.ControlLines
-	errorPage   *ErrorPage
-	helpPage    *HelpPage
-	memory      *memory.Memory
-	step        *status.Steps
-	flags       *status.Flags
-	UIs         []common.UI
-	dispChan    chan bool
-	monitorChan chan bool
-	clockChan   chan bool
-	resetChan   chan bool
-	inputChan   chan common.Input
+	instrAddr    uint16
+	address      uint16
+	buses        [7]uint64
+	opCode       *instructionSet.OpCode
+	display      *display.Terminal
+	clock        *status.Clock
+	irq          *status.Irq
+	nmi          *status.Nmi
+	reset        *status.Reset
+	log          *logging.Log
+	serial       *serial.Serial
+	opCodes      *instructionSet.OpCodes
+	lines        *instructionSet.ControlLines
+	errorPage    *ErrorPage
+	helpPage     *HelpPage
+	memory       *memory.Memory
+	step         *status.Steps
+	flags        *status.Flags
+	UIs          []common.UI
+	dispChan     chan bool
+	monitorChan  chan bool
+	clockChan    chan bool
+	resetChan    chan bool
+	inputChan    chan common.Input
 	connected    bool
 	keyIntercept []common.Intercept
 	wg           *sync.WaitGroup
 	editor       int
 	xTerm        *term.Term
+	cycles       uint64
 }
 func New() *Driver {
 	d := Driver{}
@@ -153,7 +154,8 @@ func (d *Driver) input(wg *sync.WaitGroup) {
 
 		case _, ok = <- d.resetChan:
 			d.instrAddr = 0x0200
-			if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, 0x0000, d.instrAddr) {
+			d.cycles = 0
+			if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, d.instrAddr) {
 				d.log.Dump()
 				os.Exit(1)
 			}
@@ -399,6 +401,9 @@ func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
 		t.PrintAtf(66, 21 + i, "%s%s%s%s", display.ClearEnd, common.Magenta , str, common.Reset)
 	}
 
+	// Ticks
+	d.display.PrintAtf(49, 20, "%sCycles %s%08d%s" , common.Yellow, common.BrightWhite, d.cycles, common.Reset)
+
 	// Control line names
 	offset = len(lines)
 	d.lines.SetSteps(uint8(offset / 2))
@@ -481,18 +486,24 @@ func (d *Driver) Process(input common.Input) bool {
 				}
 			}
 			if len(mnemonics) > 0 {
-				clipboard.WriteAll(mnemonics[0])
-				if input.Ascii == 'c' {
-					d.log.Info("Mnemonics copied to clipboard without address mode lines")
+				if err := clipboard.WriteAll(mnemonics[0]); err == nil {
+					if input.Ascii == 'c' {
+						d.log.Info("Mnemonics copied to clipboard without address mode lines")
+					} else {
+						d.log.Info("Mnemonics copied to clipboard")
+					}
 				} else {
-					d.log.Info("Mnemonics copied to clipboard")
+					d.log.Infof("Failed to copy lines to clipboard: %v", err)
 				}
 			} else {
-				clipboard.WriteAll("0")
-				if input.Ascii == 'c' {
-					d.log.Info("No lines set outside of address mode lines")
+				if err := clipboard.WriteAll("0"); err != nil {
+					if input.Ascii == 'c' {
+						d.log.Info("No lines set outside of address mode lines")
+					} else {
+						d.log.Info("No lines set")
+					}
 				} else {
-					d.log.Info("No lines set")
+					d.log.Infof("Failed to copy lines to clipboard: %v", err)
 				}
 			}
 
@@ -612,6 +623,9 @@ func (d *Driver) tickFunc(phaseChange bool) {
 		}
 	}
 
+	if d.clock.CurrentState() == 0 {
+		d.cycles++
+	}
 	d.lines.SetEditStep(d.step.CurrentStep() * 2 + d.clock.CurrentState() + 1)
 	d.log.Tracef("tickFunc. PhaseChange: %v. Clock: %v. Flags: %v. Phase %v", phaseChange, d.step.CurrentStep(), d.flags.CurrentFlags(), d.clock.CurrentState())
 	d.editor = 0

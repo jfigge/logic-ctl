@@ -576,7 +576,7 @@ func defineOpCodes() map[uint8]*OpCode {
 		// RTI retrieves the Processor Status Word (flags) and the Program Counter from the stack in that order
 		// (interrupts push the PC first and then the PSW).
 		// Note that unlike RTS, the return address on the stack is the actual address rather than the address-1.
-		0x40 : mop(IMP, "RTI", "", 0x40, 1, 6, false),
+		0x40 : rti(mop(IMP, "RTI", "", 0x40, 1, 6, false)),
 
 
 		//RTS (ReTurn from Subroutine)
@@ -672,6 +672,15 @@ func defineOpCodes() map[uint8]*OpCode {
 					ocs[oc].Lines[flags][step][PHI2] |= CL_CTMR
 				}
 			}
+ 		} else {
+			for step := uint8(1); step < 8; step++ {
+				for flags := uint8(0); flags < 16; flags++ {
+					if ocs[oc].Lines[flags][step][PHI2] & CL_DBRW == 0 {
+						ocs[oc].Lines[flags][step][PHI1] &^= CL_DBRW
+						ocs[oc].Lines[flags][step+1][PHI1] |= CL_DBRW
+					}
+				}
+			}
 		}
 	}
 
@@ -721,7 +730,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= 0
-		oc.Lines[flags][0][PHI2] ^= CL_PCIN | CL_FSIB | CL_FMAN
+		oc.Lines[flags][0][PHI2] ^= CL_FSIB | CL_FMAN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSB
 		oc.Lines[flags][1][PHI2] ^= CL_DBD1 | CL_FSIB
 		oc.Lines[flags][2][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
@@ -1156,6 +1165,12 @@ func mem(oc *OpCode, direction uint64) *OpCode {
 		oc.Lines[flags][oc.Steps - 3][PHI2] ^= 0
 		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_SBD2
 		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBRW | CL_FSIA
+		loadNextInstruction(oc, flags)
+	}
+	return oc
+}
+func rti(oc *OpCode) *OpCode {
+	for flags := uint8(0); flags < 16; flags++ {
 		loadNextInstruction(oc, flags)
 	}
 	return oc
