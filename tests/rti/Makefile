@@ -5,7 +5,7 @@ all: imm
 	cp op*.xml ../../.idea/runConfigurations
 
 clean:
-	rm -rf ../../.idea/runConfigurations/op_int*
+	rm -rf ../../.idea/runConfigurations/op_rti*
 	rm *.bin
 
 imm:

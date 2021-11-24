@@ -155,7 +155,7 @@ func (d *Driver) input(wg *sync.WaitGroup) {
 		case _, ok = <- d.resetChan:
 			d.instrAddr = 0x0200
 			d.cycles = 0
-			if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile, d.instrAddr) {
+			if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile) {
 				d.log.Dump()
 				os.Exit(1)
 			}
@@ -634,7 +634,7 @@ func (d *Driver) tickFunc(phaseChange bool) {
 func (d *Driver) SetOpCode(opCode uint8) {
 	if d.opCode == nil || d.opCode.OpCode != opCode {
 		d.opCode = d.opCodes.Lookup(opCode)
-		if d.opCode.Virtual {
+		if d.opCode.Virtual && (d.opCode.OpCode != 0x02 && d.opCode.OpCode != 0x12 && d.opCode.OpCode != 0x22) {
 			d.log.Warnf("Invalid opcode at %s: %s", display.HexAddress(d.address), display.HexData(opCode))
 		}
 	}

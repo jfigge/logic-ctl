@@ -676,7 +676,6 @@ func defineOpCodes() map[uint8]*OpCode {
 			for step := uint8(1); step < 8; step++ {
 				for flags := uint8(0); flags < 16; flags++ {
 					if ocs[oc].Lines[flags][step][PHI2] & CL_DBRW == 0 {
-						ocs[oc].Lines[flags][step][PHI1] &^= CL_DBRW
 						ocs[oc].Lines[flags][step+1][PHI1] |= CL_DBRW
 					}
 				}
@@ -730,51 +729,51 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= 0
-		oc.Lines[flags][0][PHI2] ^= CL_FSIB | CL_FMAN
+		oc.Lines[flags][0][PHI2] ^= 0
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSB
-		oc.Lines[flags][1][PHI2] ^= CL_DBD1 | CL_FSIB
+		oc.Lines[flags][1][PHI2] ^= 0
 		oc.Lines[flags][2][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
-		oc.Lines[flags][2][PHI2] ^= CL_DBD0 | CL_DBD1
+		oc.Lines[flags][2][PHI2] ^= 0
 		oc.Lines[flags][3][PHI1] ^= CL_DBD2 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
-		oc.Lines[flags][3][PHI2] ^= CL_DBD2
+		oc.Lines[flags][3][PHI2] ^= 0
 		oc.Lines[flags][4][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_SBD2
 		oc.Lines[flags][4][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_PCLL
 		oc.Lines[flags][5][PHI1] ^= CL_ALD0 | CL_ALD2 | CL_ALLD
-		oc.Lines[flags][5][PHI2] ^= CL_AHD0 | CL_PCLH
+		oc.Lines[flags][5][PHI2] ^= CL_AHD0 | CL_PCLH | CL_FSIB | CL_FMAN
 		oc.Lines[flags][6][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
 		oc.Lines[flags][6][PHI2] ^= CL_PCIN
 
+		if opcode != 0x00 {
+			if flags & C == 0 {
+				oc.Lines[flags][2][PHI2] ^= CL_FSCB
+			} else {
+				oc.Lines[flags][2][PHI2] ^= CL_FSCB | CL_FMAN
+			}
+		}
+
 		switch opcode {
 		case 0x00: // Break
-			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
-			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
-			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
 			oc.Lines[flags][4][PHI1] ^= CL_ALC0
 
 		case 0x02: // Reset
-			oc.Lines[flags][0][PHI1] ^= CL_CRST
-			oc.Lines[flags][0][PHI2] ^= CL_FMAN
-			oc.Lines[flags][1][PHI2] ^= CL_FSCB | CL_FSVB
+			oc.Lines[flags][0][PHI1] ^= CL_AHC1 | CL_AHC0 | CL_SPLD | CL_CRST | CL_SBD0
+			oc.Lines[flags][0][PHI2] ^= CL_AHC1 | CL_AHC0 | CL_DBD0 | CL_DBD2 | CL_SBD0 | CL_FSVA | CL_FSIB | CL_FSVB | CL_FSCB | CL_FSCA | CL_FSIA
 			oc.Lines[flags][4][PHI1] ^= CL_ALC1 | CL_ALC0
 			oc.Lines[flags][5][PHI1] ^= CL_ALC1
 
 		case 0x12: // NMI
+			//oc.Lines[flags][0][PHI1] ^= CL_DBD1 | CL_CRST | CL_AULB | CL_AULA | CL_SBD0
 			oc.Lines[flags][0][PHI1] ^= CL_CRST
-			oc.Lines[flags][0][PHI2] ^= CL_FMAN
-			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
-			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
-			oc.Lines[flags][3][PHI1] ^= CL_DBRW
 			oc.Lines[flags][3][PHI2] ^= CL_DBRW
 			oc.Lines[flags][4][PHI1] ^= CL_ALC2 | CL_ALC0
 			oc.Lines[flags][5][PHI1] ^= CL_ALC2
 
 		case 0x22: // IRQ
-			oc.Lines[flags][1][PHI1] ^= CL_DBRW
 			oc.Lines[flags][1][PHI2] ^= CL_DBRW
 			oc.Lines[flags][2][PHI1] ^= CL_DBRW
 			oc.Lines[flags][2][PHI2] ^= CL_DBRW
@@ -978,10 +977,10 @@ func jsr(addrMode uint8, syntax string, opcode uint8, steps uint8) *OpCode {
 		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_SPLD | CL_AULB | CL_AUSB | CL_SBD1
 		oc.Lines[flags][1][PHI2] ^= 0
-		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_DBRW | CL_AULB | CL_AULA | CL_AUSB
-		oc.Lines[flags][2][PHI2] ^= CL_DBD1 | CL_DBRW
-		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_DBRW | CL_AULB | CL_AUSB
-		oc.Lines[flags][3][PHI2] ^= CL_DBD0 | CL_DBD1 | CL_DBRW
+		oc.Lines[flags][2][PHI1] ^= CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AULA | CL_AUSB
+		oc.Lines[flags][2][PHI2] ^= CL_DBRW
+		oc.Lines[flags][3][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][3][PHI2] ^= CL_DBRW
 		oc.Lines[flags][4][PHI1] ^= CL_AHD0 | CL_AHD1 | CL_ALD1 | CL_ALD2 | CL_ALLD | CL_AHLD
 		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_ALD2 | CL_PCLL | CL_PCLH
 
@@ -1070,7 +1069,7 @@ func ldX(oc *OpCode, register uint64) *OpCode {
 }
 func stX(oc *OpCode, register uint64) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
-		oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBRW | register
+		oc.Lines[flags][oc.Steps - 2][PHI1] ^= register
 		oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBRW
 		loadNextInstruction(oc, flags)
 	}
@@ -1106,8 +1105,8 @@ func shift(oc *OpCode, logic uint64, direction uint64) *OpCode {
 		default:
 			oc.Lines[flags][oc.Steps - 3][PHI1] ^= CL_AULA | CL_AULB | CL_AUSA
 			oc.Lines[flags][oc.Steps - 3][PHI2] ^= CL_DBD0 | CL_DBD2 | logic | direction | CL_SBD2 | CL_FSCA | CL_FSIA
-			oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
-			oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBD0 | CL_DBD2 | CL_DBRW | CL_SBD2
+			oc.Lines[flags][oc.Steps - 2][PHI1] ^= CL_DBD0 | CL_DBD2 | CL_SBD2
+			oc.Lines[flags][oc.Steps - 2][PHI2] ^= CL_DBRW
 		}
 		loadNextInstruction(oc, flags)
 	}
@@ -1171,6 +1170,18 @@ func mem(oc *OpCode, direction uint64) *OpCode {
 }
 func rti(oc *OpCode) *OpCode {
 	for flags := uint8(0); flags < 16; flags++ {
+		oc.Lines[flags][0][PHI1] ^= 0
+		oc.Lines[flags][0][PHI2] ^= 0
+		oc.Lines[flags][1][PHI1] ^= CL_ALD2 | CL_AULB | CL_AULA | CL_AUSB | CL_AUSA
+		oc.Lines[flags][1][PHI2] ^= CL_FMAN | CL_CENB
+		oc.Lines[flags][2][PHI1] ^= CL_AHC1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AHLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][2][PHI2] ^= CL_FSVA | CL_FSIB | CL_FSVB | CL_FSCB | CL_FSCA | CL_FMAN | CL_FSIA | CL_CENB
+		oc.Lines[flags][3][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][3][PHI2] ^= CL_ALD0 | CL_ALD1 | CL_ALD2 | CL_PCLL | CL_FMAN | CL_CENB
+		oc.Lines[flags][4][PHI1] ^= CL_ALD0 | CL_ALD1 | CL_ALLD | CL_SPLD | CL_AULB | CL_AUSB
+		oc.Lines[flags][4][PHI2] ^= CL_AHD0 | CL_PCLH
+		oc.Lines[flags][5][PHI1] ^= 0
+		oc.Lines[flags][5][PHI2] ^= 0
 		loadNextInstruction(oc, flags)
 	}
 	return oc

@@ -42,13 +42,12 @@ type memoryEntry struct {
 }
 type Memory struct {
 	filename       string
-	size           uint16
+	size           int
 	memory         []*memoryEntry
 	lastAction     string
 	disassembly    []disassemblyEntry
 	opCodes        *instructionSet.OpCodes
 	log            *logging.Log
-	startAddress   uint16
 	displayAddress uint16
 	terminal       *display.Terminal
 	xOffset        []int
@@ -76,15 +75,14 @@ func New(log *logging.Log, opCodes *instructionSet.OpCodes, terminal *display.Te
 	}
 }
 
-func (m *Memory) LoadRom(l *logging.Log, filename string, startAddress uint16) bool {
+func (m *Memory) LoadRom(l *logging.Log, filename string) bool {
 	m.memory = make([]*memoryEntry, 65536, 65536)
-	m.memory[0xfffa] = &memoryEntry{data: 0xff, opCode: false}
-	m.memory[0xfffb] = &memoryEntry{data: 0xff, opCode: false}
-	m.memory[0xfffc] = &memoryEntry{data: uint8(m.startAddress & 0x00ff), opCode: false}
-	m.memory[0xfffd] = &memoryEntry{data: uint8(m.startAddress >> 8), opCode: false}
-	m.memory[0xfffe] = &memoryEntry{data: 0xff, opCode: false}
-	m.memory[0xffff] = &memoryEntry{data: 0xff, opCode: false}
-	m.startAddress = startAddress
+	m.memory[0xfffa] = &memoryEntry{data: 0x00, opCode: false}
+	m.memory[0xfffb] = &memoryEntry{data: 0x02, opCode: false}
+	m.memory[0xfffc] = &memoryEntry{data: 0x00, opCode: false}
+	m.memory[0xfffd] = &memoryEntry{data: 0x02, opCode: false}
+	m.memory[0xfffe] = &memoryEntry{data: 0x00, opCode: false}
+	m.memory[0xffff] = &memoryEntry{data: 0x02, opCode: false}
 	m.filename = filename
 	m.bpfilename = m.makeBPFile()
 	if bs, err := ioutil.ReadFile(filename); err != nil {
@@ -97,8 +95,8 @@ func (m *Memory) LoadRom(l *logging.Log, filename string, startAddress uint16) b
 		for i := 0; i < len(bs); i++ {
 			m.memory[uint16(i)] = &memoryEntry{data: bs[i]}
 		}
-		m.size = uint16(len(bs)) - m.startAddress
-		m.disassembly = m.disassemble(m.startAddress)
+		m.size = len(bs)
+		m.disassembly = m.disassemble()
 		m.log.Infof("%d byte(s) read.", len(bs))
 		m.loadBreakPoints()
 		return true
@@ -113,28 +111,27 @@ func (m* Memory) getEntry(address uint16) *memoryEntry {
 		return m.memory[address]
 	}
 }
-func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
-	addr := startAddress
+func (m *Memory) disassemble() []disassemblyEntry {
+	addr := 0x200
 	var lo, hi uint8 = 0, 0
 	var lines []disassemblyEntry
-	var lineAddr uint16 = 0
 	breakCount := 5
-	for addr <= addr + m.size {
-		lineAddr = addr
+	for addr < int(m.size) {
+		lineAddr := uint16(addr)
 
 		// Prefix line with instruction address
 		sInst := fmt.Sprintf("%%s$%s: ", display.HexAddress(lineAddr))
 
 		// Read instruction, and get its readable name
-		me := m.getEntry(addr)
+		me := m.getEntry(uint16(addr))
 		opCode := m.opCodes.Lookup(me.data)
 		if opCode.Virtual {
-			m.log.Infof("Encountered an invalid opcode [%s] at address [%s]. Disassembly terminated", opCode.Name, display.HexAddress(addr))
+			m.log.Infof("Encountered an invalid opcode [%s] at address [%s]. Disassembly terminated", opCode.Name, display.HexAddress(uint16(addr)))
 			return lines
 		} else if opCode.Name == "BRK" {
 				breakCount--
 				if breakCount == 0 {
-				m.log.Infof("Encountered 5 consecutive breaks at address [%s]. Disassembly terminated", display.HexAddress(addr - 4 ))
+				m.log.Infof("Encountered 5 consecutive breaks at address [%s]. Disassembly terminated", display.HexAddress(uint16(addr - 4)))
 				return lines[:len(lines) - 4]
 			}
 		} else {
@@ -156,58 +153,58 @@ func (m *Memory) disassemble(startAddress uint16) []disassemblyEntry {
 		case instructionSet.IMP:
 			sInst = fmt.Sprintf("%s%%s%%s%%s%%s          %%sIMP", sInst)
 		case instructionSet.IMM:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s#$%%s%s%%s%%s%%s      %%sIMM", sInst, display.HexData(lo))
 		case instructionSet.ZPG:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%sZPG", sInst, display.HexData(lo))
 		case instructionSet.ZPX:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%s%s,X%%s%%s%%s     %%sZPX", sInst, display.HexData(lo))
 		case instructionSet.ZPY:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			//sInst += "$" + display.HexData(lo) + ", Y {ZPY}"
 			sInst = fmt.Sprintf("%s$%%s%s,Y%%s%%s%%s     %%sZPY", sInst, display.HexData(lo))
 		case instructionSet.IZX:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			//sInst += "($" + display.HexData(lo) + ", X) {IZX}"
 			sInst = fmt.Sprintf("%s($%%s%s,X)%%s%%s%%s   %%sIZX", sInst, display.HexData(lo))
 		case instructionSet.IZY:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			//sInst += "($" + display.HexData(lo) + "), Y {IZY}"
 			sInst = fmt.Sprintf("%s($%%s%s,Y)%%s%%s%%s   %%sIZY", sInst, display.HexData(lo))
 		case instructionSet.ABS:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
-			hi = m.getEntry(addr).data
+			hi = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s%%[5]s     %%[8]sABS", sInst, display.HexData(hi), display.HexData(lo))
 		case instructionSet.ABX:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
-			hi = m.getEntry(addr).data
+			hi = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,X%%[5]s   %%[8]sABX", sInst, display.HexData(hi), display.HexData(lo))
 		case instructionSet.ABY:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
-			hi = m.getEntry(addr).data
+			hi = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s$%%[6]s%s%%[7]s%%[4]s%s,Y%%[5]s   %%[8]sABY", sInst, display.HexData(hi), display.HexData(lo))
 		case instructionSet.IND:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
-			hi = m.getEntry(addr).data
+			hi = m.getEntry(uint16(addr)).data
 			addr++
 			sInst = fmt.Sprintf("%s($%%[6]s%s%%[7]s%%[4]s%s)%%[5]s   %%[8]sIND", sInst, display.HexData(hi), display.HexData(lo))
 		case instructionSet.REL:
-			lo = m.getEntry(addr).data
+			lo = m.getEntry(uint16(addr)).data
 			addr++
 			//sInst += "$" + display.HexData(value) + " [$" + display.HexAddress(uint16(addr) + uint16(value)) + "] {REL}"
 			sInst = fmt.Sprintf("%s$%%s%s%%s%%s%%s       %%sREL", sInst, display.HexData(lo))
@@ -244,33 +241,39 @@ func (m *Memory) WriteMemory(address uint16, data byte) bool {
 	}
 }
 func (m *Memory) ToggleBreakPoint(address uint16) {
-	var me *memoryEntry
-	for me == nil || !me.opCode {
-		me = m.getEntry(address)
-		if me.void {
-			m.log.Warn("No valid opcode")
-			return
-		}
-		address--
-	}
-	if me.opCode {
+	if me, found := m.getRootInstruction(address); !found {
+		m.log.Warn("No valid opcode")
+	} else if !me.opCode {
+		m.log.Info("Selected value is data, not an opcode")
+	} else {
 		me.breakpoint = !me.breakpoint
 		m.redraw(false)
-	} else {
-		m.log.Info("Selected value is data, not an opcode")
 	}
 }
 func (m *Memory) HasBreakPoint(address uint16) bool {
+	if me, found := m.getRootInstruction(address); found {
+		return me.breakpoint
+	} else {
+		return false
+	}
+}
+func (m * Memory) getRootInstruction(address uint16) (*memoryEntry, bool) {
+	maxLoops := 3
 	var me *memoryEntry
 	for me == nil || !me.opCode {
 		me = m.getEntry(address)
 		if me.void {
-			return false
+			return nil, false
 		}
 		address--
+		maxLoops--
+		if maxLoops == 0 {
+			return nil, false
+		}
 	}
-	return me.breakpoint
+	return me, true
 }
+
 func (m *Memory) MemoryBlock(address uint16) (lines []string) {
 	// Round down to nearest block
 	start := address - address % 256
@@ -430,7 +433,7 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 					me.data = bs[0]
 					m.inputMode = false
 					m.hasLastInput = true
-					m.disassembly = m.disassemble(m.startAddress)
+					m.disassembly = m.disassemble()
 				}
 				m.redraw(true)
 			} else if input.Ascii == 'b' {
@@ -449,7 +452,7 @@ func (m *Memory) KeyIntercept(input common.Input) bool {
 		case 26:
 			if m.hasLastInput {
 				m.getEntry(m.lastAddress).data = m.lastInput
-				m.disassembly = m.disassemble(m.startAddress)
+				m.disassembly = m.disassemble()
 				m.hasLastInput = false
 				m.redraw(false)
 			}
