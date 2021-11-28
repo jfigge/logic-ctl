@@ -6,6 +6,7 @@ import (
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/common"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/display"
 	"github.td.teradata.com/sandbox/logic-ctl/internal/services/logging"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -244,6 +245,27 @@ func (op *OpCodes) WriteInstructions() (result bool) {
 }
 func (op *OpCodes) Lookup(opcode uint8) *OpCode {
 	return op.lookup[opcode]
+}
+func (op *OpCodes) Export() error {
+	bs := make([][]byte, 3, 3)
+	for opCode := 0; opCode < 256; opCode++ {
+		for flags := uint8(0); flags < 16; flags++ {
+			for step := uint8(0); step < 8; step++ {
+				for clock := uint8(0); clock < 2; clock++ {
+					data := op.lookup[uint8(opCode)].Lines[flags][step][clock]
+					bs[0] = append(bs[0], uint8(data >> 40), uint8(data >> 32))
+					bs[1] = append(bs[1], uint8(data >> 24), uint8(data >> 16))
+					bs[2] = append(bs[2], uint8(data >> 8), uint8(data))
+				}
+			}
+		}
+	}
+	for i := 0; i < 3; i++ {
+		if err := ioutil.WriteFile(fmt.Sprintf("microcode%d.bin", i), bs[i], 0644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Definition of opcodes
@@ -729,7 +751,7 @@ func brk(addrMode uint8, name string, syntax string, opcode uint8, length uint8,
 
 	for flags := uint8(0); flags < 16; flags++ {
 		oc.Lines[flags][0][PHI1] ^= 0
-		oc.Lines[flags][0][PHI2] ^= 0
+		oc.Lines[flags][0][PHI2] ^= CL_PCIN
 		oc.Lines[flags][1][PHI1] ^= CL_AHC1 | CL_DBD1 | CL_ALD2 | CL_ALLD | CL_AHLD | CL_AULB | CL_AULA | CL_AUSB
 		oc.Lines[flags][1][PHI2] ^= 0
 		oc.Lines[flags][2][PHI1] ^= CL_DBD0 | CL_DBD1 | CL_ALD0 | CL_ALD1 | CL_ALLD | CL_AULB | CL_AUSB

@@ -95,6 +95,10 @@ func (d *Driver) Run() {
 
 	d.resetChan <- true
 	d.dispChan <- true
+	if !d.memory.LoadRom(d.log, config.CLIConfig.RomFile) {
+		d.log.Dump()
+		os.Exit(1)
+	}
 
 	for len(d.UIs) > 0 {
 		if a, k, e := d.ReadChar(); e != nil {
@@ -463,6 +467,12 @@ func (d *Driver) Process(input common.Input) bool {
 				d.log.Infof("Read address: %s", display.HexAddress(address))
 			} else {
 				d.log.Warn("Failed to read address")
+			}
+		case 'e':
+			if err := d.opCodes.Export(); err != nil {
+				d.log.Warnf("Export failed: %v", err)
+			} else {
+				d.log.Info("Export complete")
 			}
 		case 'q':
 			return true

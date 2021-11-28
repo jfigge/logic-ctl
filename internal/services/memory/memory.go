@@ -230,15 +230,15 @@ func (m *Memory) ReadMemory(address uint16) (byte, bool) {
 }
 func (m *Memory) WriteMemory(address uint16, data byte) bool {
 	me := m.getEntry(address)
-	if !me.opCode {
+	//if !me.opCode {
 		me.data = data
 		m.lastAction = written
 		m.log.Infof("Memory[%s] set to %s", display.HexAddress(address), display.HexData(me.data))
 		return true
-	} else {
-		m.log.Errorf("Memory[%s] represents an opCode and cannot be changed", display.HexAddress(address))
-		return false
-	}
+	//} else {
+	//	m.log.Errorf("Memory[%s] represents an opCode and cannot be changed", display.HexAddress(address))
+	//	return false
+	//}
 }
 func (m *Memory) ToggleBreakPoint(address uint16) {
 	if me, found := m.getRootInstruction(address); !found {
