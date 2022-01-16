@@ -100,6 +100,7 @@ func (d *Driver) Run() {
 		os.Exit(1)
 	}
 
+	d.opCode = d.opCodes.Lookup(0x02)
 	for len(d.UIs) > 0 {
 		if a, k, e := d.ReadChar(); e != nil {
 			d.log.Warn(e.Error())
@@ -314,7 +315,6 @@ func (d *Driver) reload() {
 }
 
 func (d *Driver) Draw(t *display.Terminal, connected, initialize bool) {
-
 	if d.opCode == nil {
 		opCode, ok := d.serial.ReadOpCode()
 		if !ok {

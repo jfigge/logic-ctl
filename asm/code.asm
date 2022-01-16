@@ -9,7 +9,6 @@ RS = %00100000
 
   .org $0000
 
-  .org $0200
 reset:
   lda #%11111111  ; ports 0-7 output
   sta DDRB
